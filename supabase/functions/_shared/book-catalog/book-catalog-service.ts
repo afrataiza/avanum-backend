@@ -1,13 +1,14 @@
 import { GoogleBooksClient } from "./google-books-client.ts";
 import { mapGoogleBook } from "./google-books-mapper.ts";
 import type {
+  BookCatalogClient,
   BookCatalogItem,
   BookSearchResult,
 } from "./types.ts";
 
 export class BookCatalogService {
   constructor(
-    private readonly client = new GoogleBooksClient(),
+    private readonly client: BookCatalogClient = new GoogleBooksClient(),
   ) {}
 
   async search(query: string): Promise<BookSearchResult> {

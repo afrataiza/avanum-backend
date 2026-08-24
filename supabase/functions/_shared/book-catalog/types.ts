@@ -44,3 +44,8 @@ export interface BookSearchResult {
   items: BookCatalogItem[];
   total: number;
 }
+
+export interface BookCatalogClient {
+  search(query: string): Promise<GoogleBooksSearchResponse>;
+  getById(id: string): Promise<GoogleBooksVolume | null>;
+}

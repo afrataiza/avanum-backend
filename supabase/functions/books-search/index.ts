@@ -1,5 +1,4 @@
-import { GoogleBooksClient } from "./google-books-client.ts";
-import { mapGoogleBook } from "./google-books-mapper.ts";
+import { BookCatalogService } from "../_shared/book-catalog/book-catalog-service.ts";
 
 Deno.serve(async (req) => {
   try {
@@ -20,16 +19,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const client = new GoogleBooksClient();
-    const response = await client.search(query);
-
-    const items = (response.items ?? []).map(mapGoogleBook);
+    const service = new BookCatalogService();
+    const result = await service.search(query);
 
     return new Response(
-      JSON.stringify({
-        items,
-        total: response.totalItems,
-      }),
+      JSON.stringify(result),
       {
         status: 200,
         headers: {

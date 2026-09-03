@@ -15,6 +15,11 @@ export interface StartReadingInput {
   totalUnits: number;
 }
 
+export interface UpdateReadingProgressInput {
+  readingId: string;
+  currentUnits: number;
+}
+
 export interface Reading {
   id: string;
   user_book_id: string;

@@ -1,12 +1,14 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-import { UpdateReadingProgressService } from "../_shared/reading/update-reading-progress-service.ts";
-import type { UpdateReadingProgressInput } from "../_shared/reading/types.ts";
+import { UpdateReadingStatusService } from "../_shared/reading/update-reading-status-service.ts";
+import type { UpdateReadingStatusInput } from "../_shared/reading/types.ts";
 
-interface UpdateReadingProgressRequest {
+interface UpdateReadingStatusRequest {
   readingId: string;
-  currentUnits: number;
+  status: "reading" | "paused" | "abandoned";
 }
+
+const allowedStatuses = ["reading", "paused", "abandoned"] as const;
 
 const jsonHeaders = {
   "Content-Type": "application/json",
@@ -22,19 +24,13 @@ function response(body: unknown, status: number) {
 Deno.serve(async (req) => {
   try {
     if (req.method !== "PUT") {
-      return response(
-        { error: "Method not allowed" },
-        405,
-      );
+      return response({ error: "Method not allowed" }, 405);
     }
 
     const authorization = req.headers.get("Authorization");
 
     if (!authorization) {
-      return response(
-        { error: "Authentication required" },
-        401,
-      );
+      return response({ error: "Authentication required" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -59,35 +55,20 @@ Deno.serve(async (req) => {
     } = await userSupabase.auth.getUser();
 
     if (authError || !user) {
-      return response(
-        { error: "Invalid authentication" },
-        401,
-      );
+      return response({ error: "Invalid authentication" }, 401);
     }
 
-    const body =
-      await req.json() as UpdateReadingProgressRequest;
+    const body = await req.json() as UpdateReadingStatusRequest;
 
-    if (
-      !body.readingId ||
-      body.currentUnits === undefined
-    ) {
+    if (!body.readingId || !body.status) {
       return response(
-        {
-          error: "readingId and currentUnits are required",
-        },
+        { error: "readingId and status are required" },
         400,
       );
     }
 
-    if (
-      !Number.isInteger(body.currentUnits) ||
-      body.currentUnits < 0
-    ) {
-      return response(
-        { error: "currentUnits must be a non-negative integer" },
-        400,
-      );
+    if (!allowedStatuses.includes(body.status)) {
+      return response({ error: "Invalid reading status" }, 400);
     }
 
     const adminSupabase = createClient(
@@ -95,13 +76,11 @@ Deno.serve(async (req) => {
       serviceRoleKey,
     );
 
-    const service = new UpdateReadingProgressService(
-      adminSupabase,
-    );
+    const service = new UpdateReadingStatusService(adminSupabase);
 
-    const input: UpdateReadingProgressInput = {
+    const input: UpdateReadingStatusInput = {
       readingId: body.readingId,
-      currentUnits: body.currentUnits,
+      status: body.status,
     };
 
     const result = await service.execute(user.id, input);
@@ -120,19 +99,14 @@ Deno.serve(async (req) => {
     }
 
     if (
-      message === "Reading cannot be updated with its current status" ||
-      message === "Reading progress cannot decrease"
+      message === "Completed reading cannot change status" ||
+      message === "Abandoned reading cannot change status" ||
+      message === "Reading is already active" ||
+      message === "Reading is already paused"
     ) {
       return response({ error: message }, 409);
     }
 
-    if (message === "Current progress cannot exceed total units") {
-      return response({ error: message }, 400);
-    }
-
-    return response(
-      { error: "Internal server error" },
-      500,
-    );
+    return response({ error: "Internal server error" }, 500);
   }
 });

@@ -23,7 +23,7 @@ function response(body: unknown, status: number) {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method !== "POST") {
+    if (req.method !== "PUT") {
       return response({ error: "Method not allowed" }, 405);
     }
 

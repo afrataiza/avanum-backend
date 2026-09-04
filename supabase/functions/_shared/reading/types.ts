@@ -20,6 +20,11 @@ export interface UpdateReadingProgressInput {
   currentUnits: number;
 }
 
+export interface UpdateReadingStatusInput {
+  readingId: string;
+  status: "reading" | "paused" | "abandoned";
+}
+
 export interface Reading {
   id: string;
   user_book_id: string;

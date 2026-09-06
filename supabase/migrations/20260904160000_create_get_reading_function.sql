@@ -1,4 +1,6 @@
-create or replace function public.get_reading(
+drop function if exists public.get_reading(uuid, uuid);
+
+create function public.get_reading(
   p_user_id uuid,
   p_reading_id uuid
 )

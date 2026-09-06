@@ -1,0 +1,1 @@
+Estrutura inicial do domínio de XP.

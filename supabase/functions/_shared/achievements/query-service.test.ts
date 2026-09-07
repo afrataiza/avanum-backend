@@ -1,4 +1,7 @@
-import { assertEquals } from "jsr:@std/assert";
+import {
+  assertEquals,
+  assertRejects,
+} from "jsr:@std/assert";
 
 import { AchievementQueryService } from "./query-service.ts";
 

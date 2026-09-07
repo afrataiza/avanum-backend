@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "../supabase.ts";
 import type { XPSource, XPTransaction } from "./types.ts";
 
 export interface GrantXPInput {
@@ -71,8 +70,4 @@ export class XPService {
       alreadyGranted: data.already_granted,
     };
   }
-}
-
-export function createXPService(client: SupabaseClient): XPService {
-  return new XPService(client as unknown as XPGrantClient);
 }

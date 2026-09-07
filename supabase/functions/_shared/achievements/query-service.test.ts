@@ -98,3 +98,29 @@ Deno.test("propagates catalog query errors", async () => {
     "Failed to list achievements",
   );
 });
+
+Deno.test("propagates user achievements query errors", async () => {
+  const client = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          order: () => ({
+            then: (resolve: (value: unknown) => unknown) =>
+              Promise.resolve(resolve({
+                data: null,
+                error: new Error("query failed"),
+              })),
+          }),
+        }),
+      }),
+    }),
+  };
+
+  const service = new AchievementQueryService(client);
+
+  await assertRejects(
+    () => service.listUserAchievements("user-id"),
+    Error,
+    "Failed to list user achievements",
+  );
+});

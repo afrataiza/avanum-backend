@@ -30,27 +30,10 @@ export interface EvaluateAchievementsResult {
 
 export interface AchievementClient {
   rpc(
-    fn: "grant_achievement",
-    args: {
-      p_user_id: string;
-      p_achievement_id: string;
-      p_source_reference: string | null;
-    },
+    fn: "grant_achievement" | "evaluate_achievements",
+    args: Record<string, unknown>,
   ): PromiseLike<{
-    data: AchievementGrantRow | null;
-    error: unknown;
-  }>;
-
-  rpc(
-    fn: "evaluate_achievements",
-    args: {
-      p_user_id: string;
-      p_trigger: string;
-      p_value: number;
-      p_source_reference: string | null;
-    },
-  ): PromiseLike<{
-    data: AchievementEvaluationRow | null;
+    data: AchievementGrantRow | AchievementEvaluationRow | null;
     error: unknown;
   }>;
 }
@@ -89,10 +72,12 @@ export class AchievementService {
     if (error) throw error;
     if (!data) throw new Error("Achievement grant returned no data");
 
+    const result = data as AchievementGrantRow;
+
     return {
-      achievement: data.achievement,
-      userAchievement: data.user_achievement,
-      alreadyGranted: data.already_granted,
+      achievement: result.achievement,
+      userAchievement: result.user_achievement,
+      alreadyGranted: result.already_granted,
     };
   }
 
@@ -121,9 +106,11 @@ export class AchievementService {
     if (error) throw error;
     if (!data) throw new Error("Achievement evaluation returned no data");
 
+    const result = data as AchievementEvaluationRow;
+
     return {
-      granted: data.granted,
-      alreadyGranted: data.already_granted,
+      granted: result.granted,
+      alreadyGranted: result.already_granted,
     };
   }
 }

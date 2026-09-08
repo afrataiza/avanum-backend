@@ -1,6 +1,6 @@
 # Avanum — Product Requirements Document (MVP)
 
-**PRD v1.0 · Documento de produto consolidado**
+**PRD v1.1 · Documento de produto consolidado**
 
 ## 1. Visão do produto
 
@@ -180,14 +180,39 @@ Criar sensação de progresso e descoberta sem transformar leitura em competiç�
 
 ### XP
 
-- Ganhar XP por ações significativas.
-- Evitar farming por ações repetitivas.
-- Conclusão deve ser uma recompensa importante.
-- XP deve contribuir para evolução no mundo.
+O MVP utiliza recompensas fixas e associadas a eventos significativos da jornada:
+
+| Evento | XP |
+|---|---:|
+| Iniciar leitura | +10 XP |
+| Cada novo marco de 10% | +5 XP |
+| Concluir leitura | +50 XP |
+
+Regras:
+
+- XP é concedido apenas por eventos válidos da jornada.
+- Marcos de 10% são concedidos somente quando um novo percentual múltiplo de 10 é atingido.
+- A mesma recompensa não deve ser concedida duas vezes para o mesmo evento.
+- Pausar, retomar e abandonar não concedem XP.
+- A conclusão recebe uma recompensa maior para representar o fechamento da aventura.
 
 ### Descobertas
 
-Marcos da jornada que podem desbloquear elementos do mundo, regiões, conquistas ou momentos com Elora.
+Descobertas são conquistas permanentes associadas a marcos reais da jornada. Cada descoberta pode ser conquistada uma única vez.
+
+As cinco primeiras descobertas do MVP são:
+
+| Código | Descoberta | Critério |
+|---|---|---|
+| `first_reading` | **Primeira aventura** | Iniciar a primeira leitura |
+| `first_completion` | **Primeiro destino** | Concluir a primeira leitura |
+| `five_books_completed` | **Caminho percorrido** | Concluir 5 leituras |
+| `ten_books_completed` | **Leitora incansável** | Concluir 10 leituras |
+| `twenty_five_books_completed` | **Grande exploradora** | Concluir 25 leituras |
+
+As descobertas de contagem de leituras são avaliadas com base nas conclusões reais registradas pela jornada, e não em valores informados pela interface.
+
+Novas descobertas podem ser adicionadas futuramente sem alterar o conceito central.
 
 ### Expedições
 
@@ -250,7 +275,7 @@ Abrir leitura → Selecionar abandonar → Confirmar → Livro aparece em Abando
 
 ### Ler → Concluir
 
-Atualizar progresso → Concluir → Celebrar → Receber XP → Atualizar descoberta/mapa → Mover para Concluídos.
+Atualizar progresso → Concluir → Celebrar → Receber XP → Avaliar descobertas → Atualizar mapa → Mover para Concluídos.
 
 ## 19. Requisitos funcionais do MVP
 
@@ -265,7 +290,7 @@ Atualizar progresso → Concluir → Celebrar → Receber XP → Atualizar desco
 - **RF09** — Retomar uma aventura pausada.
 - **RF10** — Abandonar uma aventura sem apagar seu histórico.
 - **RF11** — Concluir uma aventura.
-- **RF12** — Atualizar XP e elementos de gamificação na conclusão.
+- **RF12** — Atualizar XP e elementos de gamificação na jornada.
 - **RF13** — Visualizar evolução no mapa.
 - **RF14** — Visualizar estatísticas de leitura.
 - **RF15** — Criar e acompanhar expedições pessoais.
@@ -312,6 +337,12 @@ Atualizar progresso → Concluir → Celebrar → Receber XP → Atualizar desco
 
 O MVP deve permitir encontrar um livro real pela busca e visualizar seus detalhes, adicioná-lo a Quero ler, iniciar uma leitura com formato escolhido, atualizar seu progresso, pausar, retomar, abandonar ou concluir a aventura, além de refletir a evolução nos elementos de gamificação, mapa e estatísticas previstos para o produto.
 
+A camada de gamificação inicial deve reconhecer os eventos de início e conclusão de leitura e conceder as recompensas de XP previstas. As cinco descobertas iniciais devem ser capazes de refletir os marcos de primeira leitura, primeira conclusão e quantidade acumulada de livros concluídos.
+
 ## 24. Estado do produto
 
-O PRD representa a visão funcional do MVP. A implementação do backend é feita separadamente do frontend, permitindo validar cada camada em etapas independentes. O Tech Doc deve ser atualizado quando decisões técnicas alterarem contratos, persistência ou arquitetura.
+O PRD representa a visão funcional do MVP. A implementação do backend é feita separadamente do frontend, permitindo validar cada camada em etapas independentes.
+
+No estado atual do backend, catálogo, biblioteca, jornada de leitura, consulta de leitura, XP e descobertas iniciais já possuem implementação e validação. Expedições, mapa, estatísticas e exportação anual permanecem como próximos domínios do MVP.
+
+O Tech Doc deve ser atualizado quando decisões técnicas alterarem contratos, persistência ou arquitetura.

@@ -94,17 +94,14 @@ create policy "Users can read own expedition progress events"
   to authenticated
   using (
     exists (
-      select 1
-      from public.user_expeditions ue
-      where ue.id = user_expedition_id
-        and ue.user_id = auth.uid()
+      select 1 from public.user_expeditions ue
+      where ue.id = user_expedition_id and ue.user_id = auth.uid()
     )
   );
 
 revoke all on table public.expeditions from anon, authenticated;
 revoke all on table public.user_expeditions from anon, authenticated;
 revoke all on table public.expedition_progress_events from anon, authenticated;
-
 grant select on table public.expeditions to authenticated;
 grant select on table public.user_expeditions to authenticated;
 grant select on table public.expedition_progress_events to authenticated;
@@ -183,6 +180,10 @@ begin
   from public.expeditions
   where id = v_user_expedition.expedition_id;
 
+  if not found or not v_expedition.active then
+    raise exception 'Expedition is not active';
+  end if;
+
   select * into v_event
   from public.expedition_progress_events
   where user_expedition_id = p_user_expedition_id
@@ -196,17 +197,9 @@ begin
     );
   end if;
 
-  if v_user_expedition.status <> 'active' then
-    raise exception 'Expedition is not active';
-  end if;
-
-  if v_expedition.starts_at is not null and now() < v_expedition.starts_at then
-    raise exception 'Expedition has not started';
-  end if;
-
-  if v_expedition.ends_at is not null and now() > v_expedition.ends_at then
-    raise exception 'Expedition has expired';
-  end if;
+  if v_user_expedition.status <> 'active' then raise exception 'Expedition is not active'; end if;
+  if v_expedition.starts_at is not null and now() < v_expedition.starts_at then raise exception 'Expedition has not started'; end if;
+  if v_expedition.ends_at is not null and now() > v_expedition.ends_at then raise exception 'Expedition has expired'; end if;
 
   v_new_value := least(v_user_expedition.current_value + p_amount, v_expedition.target_value);
   v_completed := v_new_value >= v_expedition.target_value;
@@ -247,9 +240,7 @@ declare
 begin
   update public.user_expeditions
   set status = 'cancelled', cancelled_at = now(), updated_at = now()
-  where id = p_user_expedition_id
-    and user_id = p_user_id
-    and status = 'active'
+  where id = p_user_expedition_id and user_id = p_user_id and status = 'active'
   returning * into v_result;
 
   if not found then raise exception 'Active expedition not found'; end if;
@@ -260,7 +251,6 @@ $$;
 revoke execute on function public.create_expedition(uuid, text, text, public.expedition_objective_type, integer, timestamptz, timestamptz) from public, anon, authenticated;
 revoke execute on function public.apply_expedition_progress(uuid, uuid, integer, text, text, text) from public, anon, authenticated;
 revoke execute on function public.cancel_expedition(uuid, uuid) from public, anon, authenticated;
-
 grant execute on function public.create_expedition(uuid, text, text, public.expedition_objective_type, integer, timestamptz, timestamptz) to service_role;
 grant execute on function public.apply_expedition_progress(uuid, uuid, integer, text, text, text) to service_role;
 grant execute on function public.cancel_expedition(uuid, uuid) to service_role;

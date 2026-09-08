@@ -1,6 +1,6 @@
 # Avanum — Technical Design Document (MVP)
 
-**Versão 1.3 · Estado técnico consolidado após Book Catalog, biblioteca e domínio inicial de leitura**
+**Versão 1.4 · Estado técnico consolidado após Book Catalog, Reading, XP e Descobertas**
 
 ## 1. Visão técnica
 
@@ -15,7 +15,7 @@ O backend do MVP está sendo desenvolvido separadamente do frontend. O repositó
 - Entregar uma base mobile-first/PWA no produto final.
 - Manter o domínio desacoplado do fornecedor de catálogo.
 - Persistir biblioteca e jornada de leitura.
-- Centralizar regras de negócio em serviços/Edge Functions.
+- Centralizar regras de negócio em serviços/Edge Functions e RPCs transacionais.
 - Usar PostgreSQL como fonte de verdade dos dados persistidos.
 - Permitir evolução futura da arquitetura sem acoplar o domínio a um provider externo.
 
@@ -29,8 +29,8 @@ O backend do MVP está sendo desenvolvido separadamente do frontend. O repositó
 - Gamificação reforça a leitura, não compete com ela.
 - A pessoa usuária é a protagonista; Elora é a guia.
 - CRUD e consultas simples podem usar Supabase SDK + RLS.
-- Regras de negócio, transações e integrações externas devem ficar em Edge Functions.
-- Lógica de domínio não deve ser espalhada pelo frontend nem transformada em uma cadeia excessiva de triggers SQL.
+- Regras de negócio, transações e integrações externas devem ficar em Edge Functions e RPCs apropriadas.
+- Triggers SQL são usados somente como reação a eventos de domínio bem definidos; a validação e a concessão de efeitos permanecem centralizadas em funções de domínio idempotentes.
 
 ## 3. Repositórios e responsabilidades
 
@@ -54,7 +54,7 @@ avanum-web
    │
    └── Edge Functions ───────────── regras de negócio
                                       │
-                                      ├── PostgreSQL
+                                      ├── PostgreSQL / RPCs
                                       │
                                       └── Book Catalog
                                              │
@@ -207,6 +207,68 @@ Restrições atuais:
 
 A tabela possui índice por `user_book_id` e índice único parcial para a leitura ativa.
 
+### 6.4 `user_xp`
+
+Representa o saldo acumulado de XP da pessoa usuária.
+
+```text
+user_id
+ total_xp
+created_at
+updated_at
+```
+
+`user_id` é a chave primária e referencia `auth.users`.
+
+### 6.5 `xp_transactions`
+
+Representa o histórico auditável de concessões de XP.
+
+```text
+id
+user_id
+amount
+source
+source_reference
+idempotency_key
+created_at
+```
+
+`idempotency_key` é único para impedir concessões duplicadas.
+
+### 6.6 `achievements`
+
+Representa o catálogo de Descobertas disponíveis no produto.
+
+```text
+id
+code
+name
+description
+trigger
+threshold
+metadata
+active
+created_at
+updated_at
+```
+
+`code` é único. `trigger` identifica o tipo de evento que pode desbloquear a descoberta e `threshold` representa o marco necessário.
+
+### 6.7 `user_achievements`
+
+Representa as Descobertas conquistadas por cada pessoa usuária.
+
+```text
+id
+user_id
+achievement_id
+source_reference
+achieved_at
+```
+
+A combinação `(user_id, achievement_id)` é única, garantindo que uma descoberta só possa ser conquistada uma vez.
+
 ## 7. Domínio de leitura
 
 ### 7.1 Início de leitura
@@ -239,6 +301,8 @@ Regras:
 6. Não pode existir outra Reading ativa ou pausada para o mesmo `UserBook`.
 7. A Reading é criada com `current_units = 0` e `status = reading`.
 8. O `UserBook` é atualizado para `reading`.
+9. A pessoa recebe `+10 XP` com chave de idempotência vinculada à Reading.
+10. O evento `reading_started` é avaliado para Descobertas.
 
 A operação utiliza a função PostgreSQL `start_reading(...)` com `security definer`, controle de ownership e execução restrita ao `service_role`.
 
@@ -269,9 +333,14 @@ Regras:
 - Ao atingir `total_units`, a Reading é automaticamente concluída.
 - Na conclusão automática, `completed_at` é preenchido.
 - O `UserBook` também passa para `completed`.
-- Reading e UserBook são atualizados na mesma transação.
+- Reading, UserBook e efeitos de gamificação aplicáveis são processados na mesma transação.
+- Cada novo marco de 10% atravessado concede `+5 XP` uma única vez.
+- A conclusão concede `+50 XP` uma única vez.
+- A conclusão gera a avaliação das Descobertas de livros concluídos.
 
 A operação utiliza `update_reading_progress(...)` no PostgreSQL.
+
+Quando uma atualização salta vários marcos de 10%, todos os marcos atravessados são concedidos.
 
 Para audiobook, o valor de progresso representa unidades de tempo configuradas pela jornada; no incremento atual o backend trabalha com inteiros e não persiste uma coluna separada de unidade.
 
@@ -310,16 +379,121 @@ Regras:
 - Uma leitura `abandoned` não pode mudar de status.
 - Solicitar o mesmo status atual é rejeitado.
 - O `UserBook` permanece sincronizado com o estado da Reading.
+- Pausar, retomar e abandonar não concedem XP.
 
 A operação utiliza `update_reading_status(...)` no PostgreSQL.
 
-### 7.4 Conclusão
+### 7.4 Consulta de leitura
 
-A conclusão pode ocorrer ao atingir `total_units` durante uma atualização de progresso. O fluxo de gamificação ainda será implementado no próximo estágio.
+Endpoint atual:
 
-A arquitetura já foi preparada para que efeitos de domínio futuros — como XP, descobertas e mapa — possam ser tratados atomicamente quando a conclusão passar a produzir esses efeitos.
+```http
+GET /functions/v1/reading-details
+```
 
-## 8. RLS e segurança
+A consulta retorna a leitura pertencente à pessoa autenticada, incluindo os dados necessários para exibir a aventura e seu contexto de livro/biblioteca.
+
+Ownership é validado server-side e uma leitura de outra pessoa não pode ser consultada.
+
+### 7.5 Conclusão
+
+A conclusão ocorre quando `current_units` atinge `total_units` durante uma atualização de progresso.
+
+O fluxo concluído atualmente é:
+
+```text
+update-reading-progress
+        ↓
+Reading → completed
+UserBook → completed
+        ↓
++50 XP
+        ↓
+avaliação de books_completed
+        ↓
+Descobertas elegíveis
+```
+
+A operação mantém o estado da leitura e os efeitos de gamificação aplicáveis de forma consistente na mesma transação.
+
+## 8. Domínio de XP
+
+### Recompensas
+
+| Evento | XP |
+|---|---:|
+| Iniciar leitura | +10 |
+| Cada marco de 10% | +5 |
+| Concluir leitura | +50 |
+| Pausar / retomar / abandonar | +0 |
+
+### Idempotência
+
+Cada concessão utiliza uma chave determinística:
+
+```text
+reading:{reading_id}:started
+reading:{reading_id}:progress:{milestone}
+reading:{reading_id}:completed
+```
+
+Uma chave já utilizada não cria nova transação nem altera novamente o saldo.
+
+### Atomicidade
+
+A concessão de XP ocorre dentro das RPCs de jornada de leitura. Assim, a alteração de estado e o respectivo efeito de XP pertencem à mesma transação.
+
+## 9. Domínio de Descobertas
+
+### Modelo
+
+`Achievement` representa uma descoberta disponível. `UserAchievement` representa a conquista efetiva por uma pessoa usuária.
+
+### Cinco primeiras Descobertas
+
+| Código | Nome | Trigger | Threshold |
+|---|---|---|---:|
+| `first_reading` | Primeira aventura | `reading_started` | 1 |
+| `first_completion` | Primeiro destino | `books_completed` | 1 |
+| `five_books_completed` | Caminho percorrido | `books_completed` | 5 |
+| `ten_books_completed` | Leitora incansável | `books_completed` | 10 |
+| `twenty_five_books_completed` | Grande exploradora | `books_completed` | 25 |
+
+Essas cinco descobertas são o seed inicial do MVP.
+
+### Avaliação
+
+A avaliação é centralizada em `evaluate_achievements(...)`.
+
+Para `reading_started`:
+
+- `source_reference` é obrigatório.
+- A referência deve apontar para uma Reading da própria pessoa usuária.
+- O valor efetivo considera a quantidade real de leituras iniciadas.
+
+Para `books_completed`:
+
+- `source_reference` é obrigatório.
+- A referência deve apontar para uma Reading concluída da própria pessoa usuária.
+- O `UserBook` relacionado também precisa estar `completed`.
+- O valor efetivo é calculado pela quantidade real de `user_books` concluídos.
+
+O valor não é confiado ao cliente para evitar concessões artificiais.
+
+### Idempotência
+
+`user_achievements` possui unicidade por `(user_id, achievement_id)`. Conceder novamente uma descoberta existente não cria duplicata.
+
+### Integração com a jornada
+
+- Um trigger `AFTER INSERT` em `readings` reage ao início de uma leitura com status `reading`.
+- Um trigger `AFTER UPDATE OF status` em `user_books` reage à mudança para `completed`.
+- Os triggers apenas identificam o evento e delegam a avaliação à função de domínio.
+- A função valida ownership, estado e referência antes de conceder qualquer descoberta.
+
+Esse desenho permite adicionar novos critérios sem colocar regras específicas no frontend.
+
+## 10. RLS e segurança
 
 RLS permanece habilitado nas entidades de dados do usuário.
 
@@ -338,6 +512,23 @@ RLS permanece habilitado nas entidades de dados do usuário.
 - Ownership é validado por meio do `user_book` relacionado.
 - Leitura, criação e atualização ficam restritas à pessoa proprietária.
 
+### `user_xp` e `xp_transactions`
+
+- Usuários podem consultar apenas os próprios dados.
+- Escritas diretas pelo cliente são bloqueadas.
+- Concessões são feitas por RPC `security definer` com execução restrita a `service_role`.
+
+### `achievements`
+
+- Usuários autenticados podem consultar apenas descobertas ativas.
+- Escritas diretas pelo cliente são bloqueadas.
+
+### `user_achievements`
+
+- Usuários podem consultar apenas suas próprias conquistas.
+- Escritas diretas pelo cliente são bloqueadas.
+- Concessões são feitas pelo domínio server-side.
+
 ### Edge Functions
 
 As Edge Functions:
@@ -350,7 +541,7 @@ As Edge Functions:
 
 `SERVICE_ROLE_KEY` nunca deve chegar ao frontend ou ser registrado em logs.
 
-## 9. Padrão de transação e RPC
+## 11. Padrão de transação e RPC
 
 Operações que alteram múltiplas entidades ou exigem consistência utilizam funções PostgreSQL transacionais.
 
@@ -364,13 +555,15 @@ Service
 PostgreSQL RPC (security definer)
     ↓
 Atualização atômica das entidades
+    ↓
+Efeitos de domínio idempotentes
 ```
 
 As RPCs possuem execução revogada de `public` e concedida ao `service_role`.
 
-Esse padrão será mantido principalmente quando uma operação produzir efeitos em Reading, UserBook e futuramente gamificação/mapa.
+Triggers são usados apenas para eventos de domínio específicos de Descobertas e não substituem a validação centralizada das RPCs.
 
-## 10. API atual do backend
+## 12. API atual do backend
 
 A tabela abaixo representa o estado **implementado**, não apenas o desenho inicial do produto.
 
@@ -379,13 +572,16 @@ A tabela abaixo representa o estado **implementado**, não apenas o desenho inic
 | GET | `books-search` | Buscar livros |
 | GET | `book-details` | Consultar detalhes |
 | POST | `add-to-library` | Adicionar livro à biblioteca |
-| POST | `start-reading` | Iniciar aventura |
-| PUT | `update-reading-progress` | Atualizar progresso |
+| POST | `start-reading` | Iniciar aventura e aplicar gamificação de início |
+| PUT | `update-reading-progress` | Atualizar progresso, XP de marcos/conclusão e descobertas de conclusão |
 | PUT | `update-reading-status` | Pausar, retomar ou abandonar |
+| GET | `reading-details` | Consultar uma leitura |
+| GET | `achievements` | Listar descobertas ativas |
+| GET | `user-achievements` | Listar descobertas conquistadas pela pessoa autenticada |
 
-As operações futuras de XP, descobertas, expedições, mapa e estatísticas ainda não estão implementadas.
+Não existe endpoint público de concessão de XP ou Descobertas. Esses efeitos são disparados por regras de domínio server-side.
 
-## 11. Convenções de resposta e validação
+## 13. Convenções de resposta e validação
 
 As Edge Functions atuais seguem uma estrutura simples de resposta JSON e validam método HTTP, autenticação e payload antes de executar a regra de negócio.
 
@@ -398,9 +594,9 @@ Erros de negócio conhecidos retornam códigos HTTP coerentes, incluindo:
 - `409` para conflito de estado ou regra de domínio.
 - `500` para erro interno não tratado como erro de negócio.
 
-## 12. Testes
+## 14. Testes e validação
 
-O backend utiliza testes automatizados para serviços e mapeadores.
+O backend utiliza testes automatizados para serviços, mapeadores e domínios implementados.
 
 Coberturas já implementadas incluem:
 
@@ -411,10 +607,29 @@ Coberturas já implementadas incluem:
 - Start-reading.
 - Update-reading-progress.
 - Update-reading-status.
+- XPService.
+- AchievementService.
+- Fluxos de consulta de Descobertas.
 
-Além dos testes automatizados, os fluxos de leitura implementados foram validados em ambiente remoto do Supabase, incluindo cenários de sucesso e erro.
+### Validação remota concluída
 
-## 13. Observabilidade e hardening
+Os fluxos de gamificação foram validados no ambiente remoto do Supabase, incluindo:
+
+- Início de leitura com `+10 XP`.
+- Proteção contra XP duplicado no início.
+- Marcos de 10% com `+5 XP`.
+- Avanço direto por múltiplos marcos.
+- Conclusão com `+50 XP` além do marco de 100%.
+- Pausar, retomar e abandonar sem XP.
+- Consistência entre `user_xp` e `xp_transactions`.
+- Primeira leitura gerando `Primeira aventura`.
+- Primeira conclusão gerando `Primeiro destino`.
+- `source_reference` validado.
+- Tentativas artificiais de conceder Descobertas bloqueadas.
+- Ausência de duplicatas em `user_achievements`.
+- Endpoints `achievements` e `user-achievements` funcionando.
+
+## 15. Observabilidade e hardening
 
 A estratégia prevista para o MVP inclui:
 
@@ -425,37 +640,11 @@ A estratégia prevista para o MVP inclui:
 - Monitoramento de erros das Edge Functions.
 - Nunca registrar API keys, tokens ou `SERVICE_ROLE_KEY`.
 - Rate limiting para busca de livros.
-- Validação consistente de ownership e progresso.
+- Validação consistente de ownership, progresso e efeitos de gamificação.
 
 A etapa de observabilidade/hardening será consolidada após os principais domínios funcionais do MVP.
 
-## 14. Gamificação
-
-A gamificação será implementada como domínio próprio e deverá reforçar a jornada de leitura.
-
-### XP
-
-- XP por ações significativas.
-- Proteção contra farming.
-- Conclusão de livro como recompensa relevante.
-- Atualização de progresso com XP controlado, quando aplicável.
-- Fórmula centralizada em serviço de gamificação.
-
-### Descobertas
-
-`Achievement` representa uma descoberta/conquista desbloqueada a partir de marcos da jornada.
-
-### Expedições
-
-`Expedition` representa uma meta pessoal de leitura.
-
-### XPTransaction
-
-`XPTransaction` será o registro de auditoria das concessões de XP.
-
-O MVP não possui desafios coletivos, rankings ou recursos sociais.
-
-## 15. Mapa
+## 16. Mapa
 
 O mapa representa visualmente a evolução da Exploradora.
 
@@ -467,7 +656,7 @@ O mapa representa visualmente a evolução da Exploradora.
 
 As regras de desbloqueio ainda serão definidas antes da implementação do domínio de mapa.
 
-## 16. Estatísticas e exportação
+## 17. Estatísticas e exportação
 
 O MVP deverá suportar:
 
@@ -480,13 +669,13 @@ O MVP deverá suportar:
 - Recordes pessoais.
 - Exportação anual como imagem para compartilhamento.
 
-## 17. ReadingSession
+## 18. ReadingSession
 
 `ReadingSession` permanece como entidade futura/opcional.
 
 O incremento atual não registra sessões individuais porque o domínio implementado trabalha com o progresso acumulado da Reading. A necessidade será reavaliada quando as estatísticas exigirem duração, sessões ou detalhamento temporal.
 
-## 18. Frontend e contratos
+## 19. Frontend e contratos
 
 O frontend deverá consumir contratos do Avanum, nunca payloads da Google Books.
 
@@ -504,7 +693,7 @@ Stack prevista para o frontend:
 
 A implementação do frontend ocorrerá em etapa separada da implementação do backend.
 
-## 19. Identidade, Elora e linguagem
+## 20. Identidade, Elora e linguagem
 
 - A pessoa usuária é a Exploradora e protagonista.
 - Elora é a guia.
@@ -514,7 +703,7 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - Evitar linguagem medieval, rebuscada ou excessivamente formal.
 - Preferir `você`, `sua`, `está`, `ler`, `chegar`.
 
-## 20. Estado atual da implementação
+## 21. Estado atual da implementação
 
 ### Implementado
 
@@ -541,35 +730,38 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - RPC `update_reading_status`.
 - Pausa, retomada e abandono.
 - Conclusão automática ao atingir o total configurado.
+- `reading-details`.
+- Domínio de XP com `user_xp` e `xp_transactions`.
+- Idempotência e RLS de XP.
+- XP integrado ao início, marcos de 10% e conclusão.
+- Domínio de Descobertas com `achievements` e `user_achievements`.
+- Seed das cinco primeiras Descobertas.
+- Avaliação automática de Descobertas na jornada de leitura.
+- Idempotência, `source_reference` e proteção contra concessões artificiais.
+- `achievements` e `user-achievements`.
 
 ### Em definição
 
 - Método final de progresso de e-book.
-- Fórmula e regras de XP.
-- Descobertas e critérios de desbloqueio.
 - Regras de desbloqueio do mapa.
 - Necessidade de `ReadingSession`.
 - Política de cache/atualização de metadados.
 - Formato e implementação da exportação anual.
 - Observabilidade/hardening final.
 
-## 21. Roadmap técnico atualizado
+## 22. Roadmap técnico atualizado
 
-A ordem considera o domínio já implementado e fecha o fluxo de Reading antes de iniciar gamificação.
+A ordem considera o domínio já implementado e prioriza fechar a camada de gamificação antes de avançar para os próximos elementos do mundo.
 
-1. **Consultar uma leitura** — disponibilizar a leitura persistida para consumo do frontend e fechar o primeiro domínio funcional.
-2. **Domínio de XP** — criar modelo, regras e serviço de XP.
-3. **Integrar XP à jornada de leitura** — aplicar XP a ações relevantes e conclusão.
-4. **Descobertas** — implementar achievements e seus critérios.
-5. **Expedições** — implementar metas pessoais de leitura.
-6. **Mapa** — implementar regiões, desbloqueios e estado de exploração.
-7. **Estatísticas** — consolidar dados mensais/anuais da jornada.
-8. **Exportação anual** — gerar imagem compartilhável das estatísticas.
-9. **Observabilidade, testes e hardening** — consolidar monitoramento, segurança, testes de integração e robustez.
+1. **Expedições** — implementar metas pessoais de leitura. **Próximo card: ATSA-12.**
+2. **Mapa** — implementar regiões, desbloqueios e estado de exploração. **ATSA-13.**
+3. **Estatísticas** — consolidar dados mensais/anuais da jornada. **ATSA-14.**
+4. **Exportação anual** — gerar imagem compartilhável das estatísticas. **ATSA-15.**
+5. **Observabilidade, testes e hardening** — consolidar monitoramento, segurança, testes de integração e robustez. **ATSA-16.**
 
 O frontend será desenvolvido em uma etapa separada, consumindo os contratos estabilizados do backend.
 
-## 22. Critérios de sucesso técnico
+## 23. Critérios de sucesso técnico
 
 - Buscar livro e adicionar à biblioteca.
 - Iniciar leitura escolhendo formato e total de unidades.
@@ -577,12 +769,17 @@ O frontend será desenvolvido em uma etapa separada, consumindo os contratos est
 - Pausar e abandonar produzem estados distintos e preservam histórico.
 - Retomar uma leitura pausada restaura o estado de `reading` sem perder progresso.
 - Atingir o total conclui Reading e UserBook atomicamente.
-- Ownership impede acesso a leituras de outra pessoa.
+- Iniciar uma leitura concede `+10 XP` uma única vez.
+- Cada marco de 10% concede `+5 XP` uma única vez.
+- Concluir uma leitura concede `+50 XP` uma única vez.
+- A primeira leitura e as quantidades de livros concluídos geram as Descobertas elegíveis.
+- Descobertas não podem ser concedidas artificialmente nem duplicadas.
+- Ownership impede acesso a dados de outra pessoa.
 - Nenhuma credencial externa chega ao frontend.
 - O domínio não depende do formato do payload Google Books.
 - O backend mantém contratos próprios para o frontend.
 
-## 23. ADR-001 — Stack e arquitetura do MVP
+## 24. ADR-001 — Stack e arquitetura do MVP
 
 **Status: ACEITA**
 
@@ -605,7 +802,7 @@ CRUD e consultas simples podem usar SDK + RLS. Regras de negócio, transações 
 - RLS e policies precisam permanecer bem testadas.
 - Fronteiras entre CRUD simples e regras de negócio devem ser respeitadas.
 
-## 24. ADR-002 — Persistência de catálogo e biblioteca
+## 25. ADR-002 — Persistência de catálogo e biblioteca
 
 **Status: ACEITA**
 
@@ -619,7 +816,7 @@ O catálogo de livros é persistido no PostgreSQL do Supabase, separando o livro
 - `add-to-library` autentica o usuário antes de executar persistência privilegiada.
 - `SERVICE_ROLE_KEY` existe somente no ambiente server-side.
 
-## 25. ADR-003 — Domínio de Reading e operações transacionais
+## 26. ADR-003 — Domínio de Reading e operações transacionais
 
 **Status: ACEITA**
 
@@ -637,7 +834,35 @@ Decisões:
 - Pausar, retomar e abandonar são transições explícitas e distintas.
 - Leituras concluídas ou abandonadas não podem voltar ao fluxo ativo.
 
-## 26. Convenções de desenvolvimento
+## 27. ADR-004 — Gamificação integrada ao domínio de Reading
+
+**Status: ACEITA**
+
+XP e Descobertas são efeitos de domínio da jornada de leitura e não operações livres expostas ao frontend.
+
+### XP
+
+- Iniciar leitura concede `+10 XP`.
+- Cada novo marco de 10% concede `+5 XP`.
+- Concluir leitura concede `+50 XP`.
+- Pausar, retomar e abandonar não concedem XP.
+- Chaves determinísticas de idempotência impedem duplicidade.
+- A concessão ocorre dentro das RPCs transacionais da jornada.
+
+### Descobertas
+
+- O catálogo inicial contém cinco descobertas seedadas.
+- `first_reading` é avaliada no início de uma Reading.
+- `books_completed` é avaliada quando uma leitura é efetivamente concluída.
+- O número de livros concluídos é calculado no banco, não confiado ao cliente.
+- `source_reference` vincula a conquista ao evento de origem.
+- `(user_id, achievement_id)` é único.
+- A concessão é protegida por funções `security definer` e `service_role`.
+- Os triggers de Reading/UserBook apenas detectam eventos e delegam a avaliação ao domínio de Descobertas.
+
+Essa decisão mantém o frontend responsável pela apresentação e o backend responsável pela integridade da progressão.
+
+## 28. Convenções de desenvolvimento
 
 O projeto adota o seguinte fluxo:
 
@@ -654,7 +879,7 @@ O projeto adota o seguinte fluxo:
 11. Finalizar o card.
 12. Atualizar esta documentação quando houver mudança arquitetural ou de contrato.
 
-## 27. Vocabulário
+## 29. Vocabulário
 
 | Termo | Significado |
 |---|---|
@@ -671,4 +896,4 @@ O projeto adota o seguinte fluxo:
 
 ---
 
-**Documento técnico do Avanum MVP — versão 1.3**
+**Documento técnico do Avanum MVP — versão 1.4**

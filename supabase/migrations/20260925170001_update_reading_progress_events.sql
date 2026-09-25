@@ -15,6 +15,8 @@ declare
   v_delta_units integer;
   v_events jsonb := '[]'::jsonb;
   v_event_id text;
+  v_milestone integer;
+  v_xp jsonb;
 
 begin
   select r.*

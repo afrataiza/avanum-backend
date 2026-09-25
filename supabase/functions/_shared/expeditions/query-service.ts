@@ -1,7 +1,13 @@
 import type { UserExpeditionWithDefinition } from "./types.ts";
 
+export interface ExpeditionQueryClient {
+  from(table: string): {
+    select(selection: string): any;
+  };
+}
+
 export class ExpeditionQueryService {
-  constructor(private readonly supabase: any) {}
+  constructor(private readonly supabase: ExpeditionQueryClient) {}
 
   async listUserExpeditions(userId: string) {
     const { data, error } = await this.supabase

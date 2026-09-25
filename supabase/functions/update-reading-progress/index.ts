@@ -116,10 +116,8 @@ Deno.serve(async (req) => {
 
     dispatcher.register(
       new ExpeditionReadingEventHandler({
-        listUserExpeditions: (userId) =>
-          expeditionQuery.listUserExpeditions(userId),
-        applyProgress: (userId, progress) =>
-          expeditionService.applyProgress(userId, progress),
+        query: expeditionQuery,
+        progress: expeditionService,
       }),
     );
 

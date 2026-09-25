@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { assertEquals, assertThrows } from "jsr:@std/assert";
 import {
   createReadingCompletedEvent,
   createReadingProgressedEvent,
@@ -37,20 +37,18 @@ Deno.test("creates a progressed event with delta", () => {
   assertEquals(event.deltaUnits, 15);
 });
 
-Deno.test("rejects non-increasing progress event", async () => {
-  await assertRejects(
+Deno.test("rejects non-increasing progress event", () => {
+  assertThrows(
     () =>
-      Promise.resolve(
-        createReadingProgressedEvent({
-          userId: "user-id",
-          readingId: "reading-id",
-          userBookId: "user-book-id",
-          mediaType: "physical",
-          previousUnits: 40,
-          currentUnits: 40,
-          occurredAt: "2026-09-25T10:00:00.000Z",
-        }),
-      ),
+      createReadingProgressedEvent({
+        userId: "user-id",
+        readingId: "reading-id",
+        userBookId: "user-book-id",
+        mediaType: "physical",
+        previousUnits: 40,
+        currentUnits: 40,
+        occurredAt: "2026-09-25T10:00:00.000Z",
+      }),
     Error,
     "Reading progress event requires increased progress",
   );

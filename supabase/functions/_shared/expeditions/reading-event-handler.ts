@@ -1,10 +1,13 @@
 import type { ReadingDomainEvent } from "../reading/events/types.ts";
 import type { ExpeditionObjectiveType, UserExpeditionWithDefinition } from "./types.ts";
 
-export interface ExpeditionReadingEventDependencies {
+export interface ExpeditionQueryPort {
   listUserExpeditions(
     userId: string,
   ): Promise<UserExpeditionWithDefinition[]>;
+}
+
+export interface ExpeditionProgressPort {
   applyProgress(
     userId: string,
     input: {
@@ -17,6 +20,11 @@ export interface ExpeditionReadingEventDependencies {
   ): Promise<unknown>;
 }
 
+export interface ExpeditionReadingEventDependencies {
+  query: ExpeditionQueryPort;
+  progress: ExpeditionProgressPort;
+}
+
 export class ExpeditionReadingEventHandler {
   constructor(
     private readonly dependencies: ExpeditionReadingEventDependencies,
@@ -27,7 +35,8 @@ export class ExpeditionReadingEventHandler {
       return;
     }
 
-    const expeditions = await this.dependencies.listUserExpeditions(event.userId);
+    const expeditions =
+      await this.dependencies.query.listUserExpeditions(event.userId);
 
     if (event.type === "reading_progressed") {
       const objectiveType: ExpeditionObjectiveType =
@@ -42,7 +51,7 @@ export class ExpeditionReadingEventHandler {
         event.deltaUnits,
         "reading_progressed",
         event.readingId,
-        event.eventId,
+        `reading:${event.readingId}:progress:${event.currentUnits}`,
       );
       return;
     }
@@ -54,7 +63,7 @@ export class ExpeditionReadingEventHandler {
       1,
       "reading_completed",
       event.readingId,
-      event.eventId,
+      `reading:${event.readingId}:completed`,
     );
   }
 
@@ -65,7 +74,7 @@ export class ExpeditionReadingEventHandler {
     amount: number,
     source: string,
     sourceReference: string,
-    eventId: string,
+    idempotencyKey: string,
   ): Promise<void> {
     for (const userExpedition of expeditions) {
       if (
@@ -76,12 +85,12 @@ export class ExpeditionReadingEventHandler {
         continue;
       }
 
-      await this.dependencies.applyProgress(userId, {
+      await this.dependencies.progress.applyProgress(userId, {
         userExpeditionId: userExpedition.id,
         amount,
         source,
         sourceReference,
-        idempotencyKey: `reading-event:${eventId}`,
+        idempotencyKey,
       });
     }
   }

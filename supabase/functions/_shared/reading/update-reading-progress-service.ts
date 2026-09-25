@@ -1,5 +1,8 @@
-import type { ReadingRpcResult, ReadingDomainEvent } from "./events/types.ts";
-import type { Reading, UpdateReadingProgressInput } from "./types.ts";
+import type {
+  ReadingRpcResult,
+  ReadingDomainEvent,
+} from "./events/types.ts";
+import type { UpdateReadingProgressInput } from "./types.ts";
 
 interface SupabaseClient {
   rpc(
@@ -12,9 +15,7 @@ interface SupabaseClient {
 }
 
 export class UpdateReadingProgressService {
-  constructor(
-    private readonly supabase: SupabaseClient,
-  ) {}
+  constructor(private readonly supabase: SupabaseClient) {}
 
   async execute(
     userId: string,

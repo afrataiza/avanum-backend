@@ -42,3 +42,66 @@ export interface ReadingRpcResult {
   reading: Reading;
   events: ReadingDomainEvent[];
 }
+
+export function createReadingStartedEvent(input: {
+  userId: string;
+  readingId: string;
+  userBookId: string;
+  mediaType: ReadingFormat;
+  occurredAt: string;
+}): ReadingStartedEvent {
+  return {
+    eventId: crypto.randomUUID(),
+    type: "reading_started",
+    userId: input.userId,
+    readingId: input.readingId,
+    userBookId: input.userBookId,
+    mediaType: input.mediaType,
+    occurredAt: input.occurredAt,
+  };
+}
+
+export function createReadingProgressedEvent(input: {
+  userId: string;
+  readingId: string;
+  userBookId: string;
+  mediaType: ReadingFormat;
+  previousUnits: number;
+  currentUnits: number;
+  occurredAt: string;
+}): ReadingProgressedEvent {
+  if (input.currentUnits <= input.previousUnits) {
+    throw new Error("Reading progress event requires increased progress");
+  }
+
+  return {
+    eventId: crypto.randomUUID(),
+    type: "reading_progressed",
+    userId: input.userId,
+    readingId: input.readingId,
+    userBookId: input.userBookId,
+    mediaType: input.mediaType,
+    previousUnits: input.previousUnits,
+    currentUnits: input.currentUnits,
+    deltaUnits: input.currentUnits - input.previousUnits,
+    occurredAt: input.occurredAt,
+  };
+}
+
+export function createReadingCompletedEvent(input: {
+  userId: string;
+  readingId: string;
+  userBookId: string;
+  mediaType: ReadingFormat;
+  occurredAt: string;
+}): ReadingCompletedEvent {
+  return {
+    eventId: crypto.randomUUID(),
+    type: "reading_completed",
+    userId: input.userId,
+    readingId: input.readingId,
+    userBookId: input.userBookId,
+    mediaType: input.mediaType,
+    occurredAt: input.occurredAt,
+  };
+}

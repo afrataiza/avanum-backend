@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-env --allow-net --allow-read
+#!/usr/bin/env -S deno run --allow-env --allow-net
 
 const userId = Deno.env.get("QA_USER_ID");
 const email = Deno.env.get("QA_EMAIL");
@@ -30,13 +30,20 @@ async function request(path: string, init: RequestInit = {}) {
   });
 }
 
-const lookup = await request(`/auth/v1/admin/users?page=1&per_page=50`);
-
-if (!lookup.ok) {
-  throw new Error(`Failed to list local Auth users: ${lookup.status} ${await lookup.text()}`);
+async function fail(response: Response, action: string): Promise<never> {
+  throw new Error(`${action}: ${response.status} ${await response.text()}`);
 }
 
-const payload = await lookup.json() as { users?: Array<{ id: string; email?: string | null }> };
+const lookup = await request(`/auth/v1/admin/users?filter=${encodeURIComponent(email)}`);
+
+if (!lookup.ok) {
+  await fail(lookup, "Failed to find local Auth users");
+}
+
+const payload = await lookup.json() as {
+  users?: Array<{ id: string; email?: string | null }>;
+};
+
 const existing = payload.users?.find((user) => user.id === userId || user.email === email);
 
 const body = {
@@ -54,13 +61,20 @@ const body = {
 };
 
 if (existing) {
+  if (existing.id !== userId) {
+    await fail(
+      new Response(null, { status: 409 }),
+      `A different Auth user already uses ${email}`,
+    );
+  }
+
   const response = await request(`/auth/v1/admin/users/${existing.id}`, {
     method: "PUT",
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to update QA Auth user: ${response.status} ${await response.text()}`);
+    await fail(response, "Failed to update QA Auth user");
   }
 
   console.log(`QA Auth user updated: ${existing.id}`);
@@ -71,9 +85,15 @@ if (existing) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to create QA Auth user: ${response.status} ${await response.text()}`);
+    await fail(response, "Failed to create QA Auth user");
   }
 
   const created = await response.json() as { id: string };
+  if (created.id !== userId) {
+    throw new Error(
+      `Created QA Auth user id ${created.id}, expected fixed id ${userId}.`,
+    );
+  }
+
   console.log(`QA Auth user created: ${created.id}`);
 }

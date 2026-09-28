@@ -11,5 +11,5 @@ echo
 echo "QA seed loaded."
 echo "QA user id: 00000000-0000-0000-0000-000000000018"
 echo
-echo "Note: the SQL seed creates domain data only."
-echo "Create a matching Auth user separately for authenticated-flow testing."
+echo "The SQL seed creates domain data only."
+echo "Create a matching Auth user separately when authenticated-flow testing is required."

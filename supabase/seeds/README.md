@@ -2,15 +2,13 @@
 
 The root `supabase/seed.sql` contains deterministic domain fixtures for local QA.
 
-The fixture uses the fixed QA user UUID:
-
-`00000000-0000-0000-0000-000000000018`
-
-The database seed creates domain data for this UUID. The `./scripts/seed-qa.sh` command also provisions a matching local Supabase Auth user:
+The QA fixture user is identified by email, not by a hard-coded Auth UUID:
 
 - email: `qa@avanum.local`
 - display name: `Exploradora QA`
 - default password: `avanum-local-qa`
+
+The Auth user is created or updated through the local Supabase Auth admin API before the domain fixtures are loaded.
 
 For a different password, set `AVANUM_QA_PASSWORD` before running the script.
 
@@ -20,7 +18,13 @@ For a different password, set `AVANUM_QA_PASSWORD` before running the script.
 ./scripts/seed-qa.sh
 ```
 
-The script runs `supabase db reset`, then creates or updates the local Auth user through the local Supabase Auth admin API.
+The script:
+
+1. resets the local database without automatic seed execution;
+2. provisions the local QA Auth user;
+3. loads `supabase/seed.sql` through the Supabase database client.
+
+The seed file is intentionally SQL-only. Do not use `psql` metacommands such as `\set` or `\i` in it.
 
 ## Seeded domains
 

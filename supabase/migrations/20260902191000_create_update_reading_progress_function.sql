@@ -1,4 +1,11 @@
-create or replace function public.update_reading_progress(
+drop function if exists public.update_reading_progress(
+  uuid,
+  uuid,
+  text,
+  integer
+);
+
+create function public.update_reading_progress(
   p_user_id uuid,
   p_reading_id uuid,
   p_current_units integer

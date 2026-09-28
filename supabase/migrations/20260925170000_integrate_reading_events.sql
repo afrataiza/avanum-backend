@@ -1,4 +1,6 @@
-create or replace function public.start_reading(
+drop function if exists public.start_reading(uuid, uuid, text, integer);
+
+create function public.start_reading(
   p_user_id uuid,
   p_user_book_id uuid,
   p_format text,

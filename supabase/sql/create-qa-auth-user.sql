@@ -8,18 +8,12 @@ do $$
 declare
   qa_user_id uuid;
   existing_user_id uuid;
-  instance_id_value uuid;
 begin
   select id into existing_user_id
   from auth.users
   where email = 'qa@avanum.local'
   limit 1;
 
-  select id into instance_id_value from auth.instances order by id limit 1;
-
-  if instance_id_value is null then
-    raise exception 'No local Auth instance found';
-  end if;
 
   if existing_user_id is null then
     qa_user_id := gen_random_uuid();
@@ -42,7 +36,7 @@ begin
       email_change
     )
     values (
-      instance_id_value,
+      '00000000-0000-0000-0000-000000000000'::uuid,
       qa_user_id,
       'authenticated',
       'authenticated',

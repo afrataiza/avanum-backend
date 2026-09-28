@@ -4,12 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
+source scripts/lib/load-supabase-env.sh
 
 QA_EMAIL="qa@avanum.local"
 QA_PASSWORD="${AVANUM_QA_PASSWORD:-avanum-local-qa}"

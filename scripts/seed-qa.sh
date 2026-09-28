@@ -16,11 +16,10 @@ command -v supabase >/dev/null 2>&1 || {
 echo "==> Resetting local database"
 supabase db reset
 
-echo "==> Creating/updating local QA Auth user"
-
+echo "==> Provisioning local QA Auth user"
 export QA_USER_ID QA_EMAIL QA_PASSWORD
 
-deno run --allow-env --allow-net --allow-read supabase/scripts/ensure-qa-user.ts
+deno run --allow-env --allow-net supabase/scripts/ensure-qa-user.ts
 
 echo
 echo "QA environment is ready."

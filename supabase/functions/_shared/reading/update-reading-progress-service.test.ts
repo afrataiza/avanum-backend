@@ -5,9 +5,10 @@ import {
 
 import { UpdateReadingProgressService } from "./update-reading-progress-service.ts";
 import type { Reading } from "./types.ts";
+import type { ReadingRpcResult } from "./events/types.ts";
 
 function createMockSupabase(
-  reading: Reading | null = null,
+  rpcResult: ReadingRpcResult | null = null,
   error: { message: string } | null = null,
 ) {
   return {
@@ -15,7 +16,7 @@ function createMockSupabase(
       _functionName: string,
       _params: Record<string, unknown>,
     ) => Promise.resolve({
-      data: reading,
+      data: rpcResult,
       error,
     }),
   };
@@ -40,9 +41,16 @@ function createReading(
   };
 }
 
+function rpcSuccess(reading: Reading): ReadingRpcResult {
+  return {
+    reading,
+    events: [],
+  };
+}
+
 Deno.test("updates reading progress", async () => {
   const reading = createReading({ current_units: 150 });
-  const supabase = createMockSupabase(reading);
+  const supabase = createMockSupabase(rpcSuccess(reading));
   const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
@@ -59,7 +67,7 @@ Deno.test("allows audiobook progress in minutes", async () => {
     total_units: 600,
     current_units: 240,
   });
-  const supabase = createMockSupabase(reading);
+  const supabase = createMockSupabase(rpcSuccess(reading));
   const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
@@ -76,7 +84,7 @@ Deno.test("completes reading when total units are reached", async () => {
     status: "completed",
     completed_at: "2026-09-02T19:00:00.000Z",
   });
-  const supabase = createMockSupabase(reading);
+  const supabase = createMockSupabase(rpcSuccess(reading));
   const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {

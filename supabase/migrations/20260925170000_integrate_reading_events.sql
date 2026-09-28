@@ -1,4 +1,9 @@
-drop function if exists public.start_reading(uuid, uuid, text, integer);
+drop function if exists public.start_reading(
+  uuid,
+  uuid,
+  text,
+  integer
+);
 
 create function public.start_reading(
   p_user_id uuid,

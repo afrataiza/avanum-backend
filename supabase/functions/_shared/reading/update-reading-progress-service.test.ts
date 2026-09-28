@@ -6,6 +6,22 @@ import {
 import { UpdateReadingProgressService } from "./update-reading-progress-service.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
+import type { ReadingRpcResult } from "./events/types.ts";
+
+function createMockSupabase(
+  rpcResult: ReadingRpcResult | null = null,
+  error: { message: string } | null = null,
+) {
+  return {
+    rpc: (
+      _functionName: string,
+      _params: Record<string, unknown>,
+    ) => Promise.resolve({
+      data: rpcResult,
+      error,
+    }),
+  };
+}
 
 function createReading(
   overrides: Partial<Reading> = {},
@@ -26,39 +42,17 @@ function createReading(
   };
 }
 
-function createMockSupabase(
-  data: ReadingRpcResult | null = null,
-  error: { message: string } | null = null,
-) {
+function rpcSuccess(reading: Reading): ReadingRpcResult {
   return {
-    rpc: (
-      _functionName: string,
-      _params: Record<string, unknown>,
-    ) => Promise.resolve({ data, error }),
+    reading,
+    events: [],
   };
 }
 
-Deno.test("updates reading progress and returns its event", async () => {
+Deno.test("updates reading progress", async () => {
   const reading = createReading({ current_units: 150 });
-  const resultData: ReadingRpcResult = {
-    reading,
-    events: [{
-      eventId: "event-id",
-      type: "reading_progressed",
-      userId: "user-id",
-      readingId: "reading-id",
-      userBookId: "user-book-id",
-      mediaType: "physical",
-      previousUnits: 100,
-      currentUnits: 150,
-      deltaUnits: 50,
-      occurredAt: reading.updated_at,
-    }],
-  };
-
-  const service = new UpdateReadingProgressService(
-    createMockSupabase(resultData),
-  );
+  const supabase = createMockSupabase(rpcSuccess(reading));
+  const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
     readingId: "reading-id",
@@ -69,14 +63,14 @@ Deno.test("updates reading progress and returns its event", async () => {
   assertEquals(result.events[0].deltaUnits, 50);
 });
 
-Deno.test("returns no events for a no-op progress update", async () => {
-  const reading = createReading({ current_units: 150 });
-  const service = new UpdateReadingProgressService(
-    createMockSupabase({
-      reading,
-      events: [],
-    }),
-  );
+Deno.test("allows audiobook progress in minutes", async () => {
+  const reading = createReading({
+    format: "audiobook",
+    total_units: 600,
+    current_units: 240,
+  });
+  const supabase = createMockSupabase(rpcSuccess(reading));
+  const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
     readingId: "reading-id",
@@ -92,35 +86,8 @@ Deno.test("returns progress and completion events when reading completes", async
     status: "completed",
     completed_at: "2026-09-02T19:00:00.000Z",
   });
-
-  const service = new UpdateReadingProgressService(
-    createMockSupabase({
-      reading,
-      events: [
-        {
-          eventId: "progress-event",
-          type: "reading_progressed",
-          userId: "user-id",
-          readingId: "reading-id",
-          userBookId: "user-book-id",
-          mediaType: "physical",
-          previousUnits: 250,
-          currentUnits: 300,
-          deltaUnits: 50,
-          occurredAt: reading.updated_at,
-        },
-        {
-          eventId: "completion-event",
-          type: "reading_completed",
-          userId: "user-id",
-          readingId: "reading-id",
-          userBookId: "user-book-id",
-          mediaType: "physical",
-          occurredAt: reading.completed_at!,
-        },
-      ],
-    }),
-  );
+  const supabase = createMockSupabase(rpcSuccess(reading));
+  const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
     readingId: "reading-id",

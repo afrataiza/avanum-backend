@@ -1,4 +1,8 @@
-drop function if exists public.update_reading_progress(uuid, uuid, integer);
+drop function if exists public.update_reading_progress(
+  uuid,
+  uuid,
+  integer
+);
 
 create function public.update_reading_progress(
   p_user_id uuid,

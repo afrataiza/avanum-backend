@@ -15,8 +15,6 @@ supabase start
 echo "==> Resetting local database schema"
 supabase db reset --no-seed
 
-echo "==> Loading local Supabase credentials"
-source scripts/lib/load-supabase-env.sh
 
 echo
 echo "Local backend is ready."

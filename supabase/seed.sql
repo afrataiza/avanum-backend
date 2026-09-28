@@ -6,7 +6,7 @@
 -- fixed QA user UUID. A matching Auth user can be created separately when
 -- interactive authenticated-flow testing is required.
 
-\set qa_user_id '''00000000-0000-0000-0000-000000000018'''
+\set qa_user_id '00000000-0000-0000-0000-000000000018'
 
 -- 🌿 Elora receives a known explorer for local QA.
 insert into public.books (

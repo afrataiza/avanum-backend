@@ -5,6 +5,9 @@ import { ReadingEventDispatcher } from "../_shared/reading/events/dispatcher.ts"
 import { ExpeditionReadingEventHandler } from "../_shared/expeditions/reading-event-handler.ts";
 import { ExpeditionQueryService } from "../_shared/expeditions/query-service.ts";
 import { ExpeditionService } from "../_shared/expeditions/service.ts";
+import { MapQueryService } from "../_shared/map/query-service.ts";
+import { MapService } from "../_shared/map/service.ts";
+import { MapReadingEventHandler } from "../_shared/map/reading-event-handler.ts";
 import type { StartReadingInput } from "../_shared/reading/types.ts";
 
 interface StartReadingRequest {
@@ -126,14 +129,24 @@ Deno.serve(async (req) => {
 
     const expeditionQuery = new ExpeditionQueryService(adminSupabase);
     const expeditionService = new ExpeditionService(adminSupabase);
+    const mapQuery = new MapQueryService(adminSupabase);
+    const mapService = new MapService(adminSupabase);
+
     const dispatcher = new ReadingEventDispatcher();
 
     dispatcher.register(
       new ExpeditionReadingEventHandler({
-        listUserExpeditions: (userId) =>
-          expeditionQuery.listUserExpeditions(userId),
-        applyProgress: (userId, progress) =>
-          expeditionService.applyProgress(userId, progress),
+        query: expeditionQuery,
+        progress: expeditionService,
+      }),
+    );
+
+    dispatcher.register(
+      new MapReadingEventHandler({
+        query: mapQuery,
+        progress: {
+          applyProgress: (input) => mapService.applyProgress(input),
+        },
       }),
     );
 

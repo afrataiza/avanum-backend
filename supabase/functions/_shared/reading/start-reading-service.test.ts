@@ -4,8 +4,26 @@ import {
 } from "jsr:@std/assert";
 
 import { StartReadingService } from "./start-reading-service.ts";
+import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
+
+function createReading(overrides: Partial<Reading> = {}): Reading {
+  return {
+    id: "reading-id",
+    user_book_id: "user-book-id",
+    format: "physical",
+    total_units: 278,
+    current_units: 0,
+    status: "reading",
+    started_at: "2026-08-27T21:00:00.000Z",
+    paused_at: null,
+    completed_at: null,
+    created_at: "2026-08-27T21:00:00.000Z",
+    updated_at: "2026-08-27T21:00:00.000Z",
+    ...overrides,
+  };
+}
 
 function createMockSupabase(
   rpcResult: ReadingRpcResult | null = null,
@@ -69,12 +87,11 @@ Deno.test("starts a reading", async () => {
 Deno.test(
   "does not start a book with an active reading",
   async () => {
-    const supabase = createMockSupabase(
-      null,
-      { message: "User book already has an active reading" },
+    const service = new StartReadingService(
+      createMockSupabase(null, {
+        message: "User book already has an active reading",
+      }),
     );
-
-    const service = new StartReadingService(supabase);
 
     await assertRejects(
       () =>
@@ -95,12 +112,11 @@ Deno.test(
 Deno.test(
   "does not start a completed book",
   async () => {
-    const supabase = createMockSupabase(
-      null,
-      { message: "Book cannot be started with its current status" },
+    const service = new StartReadingService(
+      createMockSupabase(null, {
+        message: "Book cannot be started with its current status",
+      }),
     );
-
-    const service = new StartReadingService(supabase);
 
     await assertRejects(
       () =>
@@ -121,12 +137,11 @@ Deno.test(
 Deno.test(
   "returns error when user book does not exist",
   async () => {
-    const supabase = createMockSupabase(
-      null,
-      { message: "User book not found" },
+    const service = new StartReadingService(
+      createMockSupabase(null, {
+        message: "User book not found",
+      }),
     );
-
-    const service = new StartReadingService(supabase);
 
     await assertRejects(
       () =>

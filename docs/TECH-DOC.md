@@ -1,6 +1,6 @@
 # Avanum — Technical Design Document (MVP)
 
-**Versão 1.4 · Estado técnico consolidado após Book Catalog, Reading, XP e Descobertas**
+**Versão 1.5 · Estado técnico consolidado após Book Catalog, Reading, XP, Descobertas e integração de eventos/Expedições**
 
 ## 1. Visão técnica
 
@@ -629,7 +629,53 @@ Os fluxos de gamificação foram validados no ambiente remoto do Supabase, inclu
 - Ausência de duplicatas em `user_achievements`.
 - Endpoints `achievements` e `user-achievements` funcionando.
 
-## 15. Observabilidade e hardening
+
+## 15. Eventos de domínio da Reading
+
+A Jornada de Leitura produz eventos de domínio tipados após mutações válidas. No MVP, os eventos são objetos transitórios e não são persistidos em uma tabela própria.
+
+Eventos atuais:
+
+- `reading_started`
+- `reading_progressed`
+- `reading_completed`
+
+### Dispatcher e consumidores
+
+`ReadingEventDispatcher` encaminha os eventos para handlers registrados.
+
+O consumidor de Expedições é responsável por:
+
+- mapear `physical` e `ebook` para `pages_read`;
+- mapear `audiobook` para `minutes_listened`;
+- mapear `reading_completed` para `books_completed`;
+- atualizar todas as Expedições compatíveis e elegíveis;
+- ignorar Expedições inativas, concluídas, canceladas ou fora do período;
+- utilizar chaves determinísticas de idempotência.
+
+Para `reading_progressed`, o evento contém `previousUnits`, `currentUnits` e `deltaUnits`. O consumidor aplica somente o delta.
+
+Pausa, retomada e abandono não geram progresso de Expedição.
+
+### Contrato interno e API
+
+As RPCs de início e progresso retornam os dados da Reading juntamente com os eventos produzidos para consumo interno da camada server-side. As Edge Functions processam esses eventos antes de responder e não expõem o contrato interno de eventos na resposta pública.
+
+No MVP, o dispatcher é síncrono e executado após a mutação da Reading. Não existe Event Bus, fila, outbox ou processamento assíncrono.
+
+### Idempotência e retries
+
+A idempotência do consumo pertence ao domínio consumidor. Para Expedições, as chaves derivadas do Reading e do ponto de progresso permanecem estáveis em retries:
+
+```text
+reading:{reading_id}:progress:{current_units}
+reading:{reading_id}:completed
+```
+
+O `eventId` do evento não é usado como chave de idempotência.
+
+
+## 16. Observabilidade e hardening
 
 A estratégia prevista para o MVP inclui:
 
@@ -644,7 +690,7 @@ A estratégia prevista para o MVP inclui:
 
 A etapa de observabilidade/hardening será consolidada após os principais domínios funcionais do MVP.
 
-## 16. Mapa
+## 17. Mapa
 
 O mapa representa visualmente a evolução da Exploradora.
 
@@ -656,7 +702,7 @@ O mapa representa visualmente a evolução da Exploradora.
 
 As regras de desbloqueio ainda serão definidas antes da implementação do domínio de mapa.
 
-## 17. Estatísticas e exportação
+## 18. Estatísticas e exportação
 
 O MVP deverá suportar:
 
@@ -669,13 +715,13 @@ O MVP deverá suportar:
 - Recordes pessoais.
 - Exportação anual como imagem para compartilhamento.
 
-## 18. ReadingSession
+## 19. ReadingSession
 
 `ReadingSession` permanece como entidade futura/opcional.
 
 O incremento atual não registra sessões individuais porque o domínio implementado trabalha com o progresso acumulado da Reading. A necessidade será reavaliada quando as estatísticas exigirem duração, sessões ou detalhamento temporal.
 
-## 19. Frontend e contratos
+## 20. Frontend e contratos
 
 O frontend deverá consumir contratos do Avanum, nunca payloads da Google Books.
 
@@ -693,7 +739,7 @@ Stack prevista para o frontend:
 
 A implementação do frontend ocorrerá em etapa separada da implementação do backend.
 
-## 20. Identidade, Elora e linguagem
+## 21. Identidade, Elora e linguagem
 
 - A pessoa usuária é a Exploradora e protagonista.
 - Elora é a guia.
@@ -703,7 +749,7 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - Evitar linguagem medieval, rebuscada ou excessivamente formal.
 - Preferir `você`, `sua`, `está`, `ler`, `chegar`.
 
-## 21. Estado atual da implementação
+## 22. Estado atual da implementação
 
 ### Implementado
 
@@ -739,6 +785,7 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - Avaliação automática de Descobertas na jornada de leitura.
 - Idempotência, `source_reference` e proteção contra concessões artificiais.
 - `achievements` e `user-achievements`.
+- Em implementação: domínio de Mapa (`map_regions`, `map_nodes`, `user_map_progress`) e progressão de nós.
 
 ### Em definição
 
@@ -749,7 +796,7 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - Formato e implementação da exportação anual.
 - Observabilidade/hardening final.
 
-## 22. Roadmap técnico atualizado
+## 23. Roadmap técnico atualizado
 
 A ordem considera o domínio já implementado e prioriza fechar a camada de gamificação antes de avançar para os próximos elementos do mundo.
 
@@ -761,7 +808,7 @@ A ordem considera o domínio já implementado e prioriza fechar a camada de gami
 
 O frontend será desenvolvido em uma etapa separada, consumindo os contratos estabilizados do backend.
 
-## 23. Critérios de sucesso técnico
+## 24. Critérios de sucesso técnico
 
 - Buscar livro e adicionar à biblioteca.
 - Iniciar leitura escolhendo formato e total de unidades.
@@ -779,7 +826,7 @@ O frontend será desenvolvido em uma etapa separada, consumindo os contratos est
 - O domínio não depende do formato do payload Google Books.
 - O backend mantém contratos próprios para o frontend.
 
-## 24. ADR-001 — Stack e arquitetura do MVP
+## 25. ADR-001 — Stack e arquitetura do MVP
 
 **Status: ACEITA**
 
@@ -802,7 +849,7 @@ CRUD e consultas simples podem usar SDK + RLS. Regras de negócio, transações 
 - RLS e policies precisam permanecer bem testadas.
 - Fronteiras entre CRUD simples e regras de negócio devem ser respeitadas.
 
-## 25. ADR-002 — Persistência de catálogo e biblioteca
+## 26. ADR-002 — Persistência de catálogo e biblioteca
 
 **Status: ACEITA**
 
@@ -816,7 +863,7 @@ O catálogo de livros é persistido no PostgreSQL do Supabase, separando o livro
 - `add-to-library` autentica o usuário antes de executar persistência privilegiada.
 - `SERVICE_ROLE_KEY` existe somente no ambiente server-side.
 
-## 26. ADR-003 — Domínio de Reading e operações transacionais
+## 27. ADR-003 — Domínio de Reading e operações transacionais
 
 **Status: ACEITA**
 
@@ -834,7 +881,7 @@ Decisões:
 - Pausar, retomar e abandonar são transições explícitas e distintas.
 - Leituras concluídas ou abandonadas não podem voltar ao fluxo ativo.
 
-## 27. ADR-004 — Gamificação integrada ao domínio de Reading
+## 28. ADR-004 — Gamificação integrada ao domínio de Reading
 
 **Status: ACEITA**
 
@@ -862,7 +909,7 @@ XP e Descobertas são efeitos de domínio da jornada de leitura e não operaçõ
 
 Essa decisão mantém o frontend responsável pela apresentação e o backend responsável pela integridade da progressão.
 
-## 28. Convenções de desenvolvimento
+## 29. Convenções de desenvolvimento
 
 O projeto adota o seguinte fluxo:
 
@@ -879,7 +926,7 @@ O projeto adota o seguinte fluxo:
 11. Finalizar o card.
 12. Atualizar esta documentação quando houver mudança arquitetural ou de contrato.
 
-## 29. Vocabulário
+## 30. Vocabulário
 
 | Termo | Significado |
 |---|---|
@@ -896,4 +943,4 @@ O projeto adota o seguinte fluxo:
 
 ---
 
-**Documento técnico do Avanum MVP — versão 1.4**
+**Documento técnico do Avanum MVP — versão 1.5**

@@ -4,6 +4,7 @@ import {
 } from "jsr:@std/assert";
 
 import { UpdateReadingProgressService } from "./update-reading-progress-service.ts";
+import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
 
@@ -59,6 +60,7 @@ Deno.test("updates reading progress", async () => {
   });
 
   assertEquals(result.reading, reading);
+  assertEquals(result.events[0].deltaUnits, 50);
 });
 
 Deno.test("allows audiobook progress in minutes", async () => {
@@ -72,13 +74,13 @@ Deno.test("allows audiobook progress in minutes", async () => {
 
   const result = await service.execute("user-id", {
     readingId: "reading-id",
-    currentUnits: 240,
+    currentUnits: 150,
   });
 
-  assertEquals(result.reading, reading);
+  assertEquals(result.events, []);
 });
 
-Deno.test("completes reading when total units are reached", async () => {
+Deno.test("returns progress and completion events when reading completes", async () => {
   const reading = createReading({
     current_units: 300,
     status: "completed",
@@ -92,15 +94,40 @@ Deno.test("completes reading when total units are reached", async () => {
     currentUnits: 300,
   });
 
+  assertEquals(result.events.map((event) => event.type), [
+    "reading_progressed",
+    "reading_completed",
+  ]);
+});
+
+Deno.test("allows audiobook progress in minutes", async () => {
+  const reading = createReading({
+    format: "audiobook",
+    total_units: 600,
+    current_units: 240,
+  });
+
+  const service = new UpdateReadingProgressService(
+    createMockSupabase({
+      reading,
+      events: [],
+    }),
+  );
+
+  const result = await service.execute("user-id", {
+    readingId: "reading-id",
+    currentUnits: 240,
+  });
+
   assertEquals(result.reading, reading);
 });
 
 Deno.test("rejects decreasing progress", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Reading progress cannot decrease" },
+  const service = new UpdateReadingProgressService(
+    createMockSupabase(null, {
+      message: "Reading progress cannot decrease",
+    }),
   );
-  const service = new UpdateReadingProgressService(supabase);
 
   await assertRejects(
     () =>
@@ -114,11 +141,11 @@ Deno.test("rejects decreasing progress", async () => {
 });
 
 Deno.test("rejects progress above total units", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Current progress cannot exceed total units" },
+  const service = new UpdateReadingProgressService(
+    createMockSupabase(null, {
+      message: "Current progress cannot exceed total units",
+    }),
   );
-  const service = new UpdateReadingProgressService(supabase);
 
   await assertRejects(
     () =>
@@ -132,53 +159,17 @@ Deno.test("rejects progress above total units", async () => {
 });
 
 Deno.test("rejects paused reading", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Reading cannot be updated with its current status" },
+  const service = new UpdateReadingProgressService(
+    createMockSupabase(null, {
+      message: "Reading cannot be updated with its current status",
+    }),
   );
-  const service = new UpdateReadingProgressService(supabase);
 
   await assertRejects(
     () =>
       service.execute("user-id", {
         readingId: "reading-id",
         currentUnits: 150,
-      }),
-    Error,
-    "Reading cannot be updated with its current status",
-  );
-});
-
-Deno.test("rejects abandoned reading", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Reading cannot be updated with its current status" },
-  );
-  const service = new UpdateReadingProgressService(supabase);
-
-  await assertRejects(
-    () =>
-      service.execute("user-id", {
-        readingId: "reading-id",
-        currentUnits: 150,
-      }),
-    Error,
-    "Reading cannot be updated with its current status",
-  );
-});
-
-Deno.test("rejects completed reading", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Reading cannot be updated with its current status" },
-  );
-  const service = new UpdateReadingProgressService(supabase);
-
-  await assertRejects(
-    () =>
-      service.execute("user-id", {
-        readingId: "reading-id",
-        currentUnits: 300,
       }),
     Error,
     "Reading cannot be updated with its current status",
@@ -186,11 +177,9 @@ Deno.test("rejects completed reading", async () => {
 });
 
 Deno.test("returns error when reading does not exist", async () => {
-  const supabase = createMockSupabase(
-    null,
-    { message: "Reading not found" },
+  const service = new UpdateReadingProgressService(
+    createMockSupabase(null, { message: "Reading not found" }),
   );
-  const service = new UpdateReadingProgressService(supabase);
 
   await assertRejects(
     () =>

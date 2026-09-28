@@ -4,6 +4,10 @@ export interface ReadingEventHandler {
   handle(event: ReadingDomainEvent): Promise<void>;
 }
 
+export interface ReadingEventConsumer extends ReadingEventHandler {
+  readonly name: string;
+}
+
 export class ReadingEventDispatcher {
   private readonly handlers: ReadingEventHandler[] = [];
 

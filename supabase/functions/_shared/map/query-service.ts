@@ -1,7 +1,25 @@
-import type { MapRegionWithNodes } from "./types.ts";
+import type { MapNodeWithProgress, MapRegionWithNodes } from "./types.ts";
+
+interface MapQueryClient {
+  from(table: string): any;
+}
 
 export class MapQueryService {
-  constructor(private readonly supabase: any) {}
+  constructor(private readonly supabase: MapQueryClient) {}
+
+  async listNodes(): Promise<MapNodeWithProgress[]> {
+    const { data, error } = await this.supabase
+      .from("map_nodes")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (error) {
+      throw new Error("Failed to list map nodes");
+    }
+
+    return data as MapNodeWithProgress[];
+  }
 
   async getUserMap(userId: string): Promise<MapRegionWithNodes[]> {
     if (!userId?.trim()) {

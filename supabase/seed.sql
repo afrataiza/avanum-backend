@@ -1,10 +1,15 @@
 -- Avanum local QA seed
 -- Deterministic domain fixtures for local development and QA.
 --
--- Supabase's SQL seed runs during database reset. It cannot provision an
--- application user through the public Auth API, so domain fixtures use a
--- fixed QA user UUID. A matching Auth user can be created separately when
--- interactive authenticated-flow testing is required.
+-- Loaded by scripts/seed-qa.sh after local Auth provisioning.
+-- Keep this file as SQL only (no psql metacommands).
+
+do $
+begin
+  if not exists (select 1 from auth.users where email = 'qa@avanum.local') then
+    raise exception 'QA Auth user qa@avanum.local must exist before loading supabase/seed.sql';
+  end if;
+end $;
 
 
 -- 🌿 Elora receives a known explorer for local QA.
@@ -25,10 +30,10 @@ on conflict (id) do update set
 
 insert into public.user_books (id,user_id,book_id,status)
 values
-  ('20000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000018'::uuid,'10000000-0000-0000-0000-000000000001','reading'),
-  ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000018'::uuid,'10000000-0000-0000-0000-000000000002','want_to_read'),
-  ('20000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000018'::uuid,'10000000-0000-0000-0000-000000000003','reading'),
-  ('20000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000018'::uuid,'10000000-0000-0000-0000-000000000004','completed')
+  ('20000000-0000-0000-0000-000000000001', (select id from auth.users where email = 'qa@avanum.local'),'10000000-0000-0000-0000-000000000001','reading'),
+  ('20000000-0000-0000-0000-000000000002', (select id from auth.users where email = 'qa@avanum.local'),'10000000-0000-0000-0000-000000000002','want_to_read'),
+  ('20000000-0000-0000-0000-000000000003', (select id from auth.users where email = 'qa@avanum.local'),'10000000-0000-0000-0000-000000000003','reading'),
+  ('20000000-0000-0000-0000-000000000004', (select id from auth.users where email = 'qa@avanum.local'),'10000000-0000-0000-0000-000000000004','completed')
 on conflict (id) do update set
   user_id=excluded.user_id,book_id=excluded.book_id,status=excluded.status,updated_at=now();
 
@@ -45,28 +50,28 @@ on conflict (id) do update set
   completed_at=excluded.completed_at,updated_at=now();
 
 insert into public.user_xp (user_id,total_xp)
-values ('00000000-0000-0000-0000-000000000018'::uuid,85)
+values ((select id from auth.users where email = 'qa@avanum.local'),85)
 on conflict (user_id) do update set total_xp=excluded.total_xp,updated_at=now();
 
 insert into public.xp_transactions (
   id,user_id,amount,source,source_reference,idempotency_key,created_at
 )
 values
-  ('40000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000018'::uuid,10,'reading_started','30000000-0000-0000-0000-000000000001','qa:reading_started:1','2026-09-01T09:00:00Z'),
-  ('40000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000018'::uuid,25,'reading_progress_milestone','30000000-0000-0000-0000-000000000001','qa:reading:1:progress:40','2026-09-05T09:00:00Z'),
-  ('40000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000018'::uuid,50,'reading_completed','30000000-0000-0000-0000-000000000003','qa:reading_completed:1','2026-08-22T18:00:00Z')
+  ('40000000-0000-0000-0000-000000000001',(select id from auth.users where email = 'qa@avanum.local'),10,'reading_started','30000000-0000-0000-0000-000000000001','qa:reading_started:1','2026-09-01T09:00:00Z'),
+  ('40000000-0000-0000-0000-000000000002',(select id from auth.users where email = 'qa@avanum.local'),25,'reading_progress_milestone','30000000-0000-0000-0000-000000000001','qa:reading:1:progress:40','2026-09-05T09:00:00Z'),
+  ('40000000-0000-0000-0000-000000000003',(select id from auth.users where email = 'qa@avanum.local'),50,'reading_completed','30000000-0000-0000-0000-000000000003','qa:reading_completed:1','2026-08-22T18:00:00Z')
 on conflict (id) do update set
   user_id=excluded.user_id,amount=excluded.amount,source=excluded.source,source_reference=excluded.source_reference,
   idempotency_key=excluded.idempotency_key,created_at=excluded.created_at;
 
 insert into public.user_achievements (id,user_id,achievement_id,source_reference,achieved_at)
-select '50000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000018'::uuid,a.id,'qa:reading_started','2026-09-01T09:00:00Z'
+select '50000000-0000-0000-0000-000000000001',(select id from auth.users where email = 'qa@avanum.local'),a.id,'qa:reading_started','2026-09-01T09:00:00Z'
 from public.achievements a where a.code='first_reading'
 on conflict (id) do update set
   user_id=excluded.user_id,achievement_id=excluded.achievement_id,source_reference=excluded.source_reference,achieved_at=excluded.achieved_at;
 
 insert into public.user_achievements (id,user_id,achievement_id,source_reference,achieved_at)
-select '50000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000018'::uuid,a.id,'qa:reading_completed','2026-08-22T18:00:00Z'
+select '50000000-0000-0000-0000-000000000002',(select id from auth.users where email = 'qa@avanum.local'),a.id,'qa:reading_completed','2026-08-22T18:00:00Z'
 from public.achievements a where a.code='first_completion'
 on conflict (id) do update set
   user_id=excluded.user_id,achievement_id=excluded.achievement_id,source_reference=excluded.source_reference,achieved_at=excluded.achieved_at;
@@ -75,8 +80,8 @@ insert into public.expeditions (
   id,created_by,name,description,objective_type,target_value,starts_at,ends_at,active
 )
 values
-  ('60000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000018'::uuid,'Travessia QA','Expedição local para validar progressão de páginas.','pages_read',500,'2026-09-01T00:00:00Z','2026-12-31T23:59:59Z',true),
-  ('60000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000018'::uuid,'Primeiro destino QA','Expedição local já concluída.','books_completed',1,'2026-08-01T00:00:00Z','2026-12-31T23:59:59Z',true)
+  ('60000000-0000-0000-0000-000000000001',(select id from auth.users where email = 'qa@avanum.local'),'Travessia QA','Expedição local para validar progressão de páginas.','pages_read',500,'2026-09-01T00:00:00Z','2026-12-31T23:59:59Z',true),
+  ('60000000-0000-0000-0000-000000000002',(select id from auth.users where email = 'qa@avanum.local'),'Primeiro destino QA','Expedição local já concluída.','books_completed',1,'2026-08-01T00:00:00Z','2026-12-31T23:59:59Z',true)
 on conflict (id) do update set
   created_by=excluded.created_by,name=excluded.name,description=excluded.description,
   objective_type=excluded.objective_type,target_value=excluded.target_value,starts_at=excluded.starts_at,
@@ -86,8 +91,8 @@ insert into public.user_expeditions (
   id,user_id,expedition_id,current_value,status,started_at,completed_at,cancelled_at
 )
 values
-  ('70000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000018'::uuid,'60000000-0000-0000-0000-000000000001',240,'active','2026-09-01T09:00:00Z',null,null),
-  ('70000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000018'::uuid,'60000000-0000-0000-0000-000000000002',1,'completed','2026-08-20T09:00:00Z','2026-08-22T18:00:00Z',null)
+  ('70000000-0000-0000-0000-000000000001',(select id from auth.users where email = 'qa@avanum.local'),'60000000-0000-0000-0000-000000000001',240,'active','2026-09-01T09:00:00Z',null,null),
+  ('70000000-0000-0000-0000-000000000002',(select id from auth.users where email = 'qa@avanum.local'),'60000000-0000-0000-0000-000000000002',1,'completed','2026-08-20T09:00:00Z','2026-08-22T18:00:00Z',null)
 on conflict (id) do update set
   user_id=excluded.user_id,expedition_id=excluded.expedition_id,current_value=excluded.current_value,
   status=excluded.status,started_at=excluded.started_at,completed_at=excluded.completed_at,
@@ -108,7 +113,7 @@ insert into public.user_map_progress (
   user_id,node_id,status,unlocked_at,explored_at,source,source_reference
 )
 select
-  '00000000-0000-0000-0000-000000000018'::uuid,n.id,
+  (select id from auth.users where email = 'qa@avanum.local'),n.id,
   case n.slug
     when 'first-step' then 'explored'::public.map_node_status
     when 'first-reading' then 'discovered'::public.map_node_status

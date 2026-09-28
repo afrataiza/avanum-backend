@@ -15,6 +15,9 @@ supabase start
 echo "==> Resetting local database schema"
 supabase db reset --no-seed
 
+echo "==> Loading local Supabase credentials"
+source scripts/lib/load-supabase-env.sh
+
 echo
 echo "Local backend is ready."
 echo "Supabase API: http://127.0.0.1:54321"

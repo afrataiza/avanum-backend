@@ -19,3 +19,6 @@ echo
 echo "Local backend is ready."
 echo "Supabase API: http://127.0.0.1:54321"
 echo "Supabase Studio: http://127.0.0.1:54323"
+echo
+echo "Start Edge Functions with:"
+echo "  supabase functions serve --env-file .env"

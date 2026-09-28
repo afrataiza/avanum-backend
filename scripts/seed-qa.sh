@@ -22,6 +22,9 @@ command -v supabase >/dev/null 2>&1 || {
 echo "==> Resetting local database schema"
 supabase db reset --no-seed
 
+echo "==> Loading local Supabase credentials"
+source scripts/lib/load-supabase-env.sh
+
 echo "==> Provisioning local QA Auth user"
 export QA_EMAIL QA_PASSWORD
 

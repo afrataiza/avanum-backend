@@ -785,6 +785,7 @@ A implementação do frontend ocorrerá em etapa separada da implementação do 
 - Avaliação automática de Descobertas na jornada de leitura.
 - Idempotência, `source_reference` e proteção contra concessões artificiais.
 - `achievements` e `user-achievements`.
+- Em implementação: domínio de Mapa (`map_regions`, `map_nodes`, `user_map_progress`) e progressão de nós.
 
 ### Em definição
 

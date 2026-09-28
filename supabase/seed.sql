@@ -6,7 +6,9 @@
 
 do $
 begin
-  if not exists (select 1 from auth.users where email = 'qa@avanum.local') then
+  if not exists (
+    select 1 from auth.users where email = 'qa@avanum.local'
+  ) then
     raise exception 'QA Auth user qa@avanum.local must exist before loading supabase/seed.sql';
   end if;
 end $;

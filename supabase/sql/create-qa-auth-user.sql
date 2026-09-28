@@ -15,7 +15,7 @@ begin
   where email = 'qa@avanum.local'
   limit 1;
 
-  select id into instance_id_value from auth.instances limit 1;
+  select id into instance_id_value from auth.instances order by id limit 1;
 
   if instance_id_value is null then
     raise exception 'No local Auth instance found';
@@ -36,7 +36,10 @@ begin
       raw_user_meta_data,
       created_at,
       updated_at,
-      confirmation_token
+      confirmation_token,
+      recovery_token,
+      email_change_token_new,
+      email_change
     )
     values (
       instance_id_value,
@@ -50,6 +53,9 @@ begin
       '{"name":"Exploradora QA","display_name":"Exploradora QA"}'::jsonb,
       now(),
       now(),
+      '',
+      '',
+      '',
       ''
     );
 

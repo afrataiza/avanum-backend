@@ -1,13 +1,12 @@
 #!/usr/bin/env -S deno run --allow-env --allow-net
 
-const userId = Deno.env.get("QA_USER_ID");
 const email = Deno.env.get("QA_EMAIL");
 const password = Deno.env.get("QA_PASSWORD");
 const baseUrl = Deno.env.get("SUPABASE_URL") ?? "http://127.0.0.1:54321";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-if (!userId || !email || !password) {
-  throw new Error("QA_USER_ID, QA_EMAIL and QA_PASSWORD are required.");
+if (!email || !password) {
+  throw new Error("QA_EMAIL and QA_PASSWORD are required.");
 }
 
 if (!serviceRoleKey) {
@@ -15,8 +14,8 @@ if (!serviceRoleKey) {
 }
 
 const headers = {
-  "Authorization": `Bearer ${serviceRoleKey}`,
-  "apikey": serviceRoleKey,
+  Authorization: `Bearer ${serviceRoleKey}`,
+  apikey: serviceRoleKey,
   "Content-Type": "application/json",
 };
 
@@ -34,20 +33,21 @@ async function fail(response: Response, action: string): Promise<never> {
   throw new Error(`${action}: ${response.status} ${await response.text()}`);
 }
 
-const lookup = await request(`/auth/v1/admin/users?filter=${encodeURIComponent(email)}`);
+const lookup = await request(
+  `/auth/v1/admin/users?per_page=100&page=1`,
+);
 
 if (!lookup.ok) {
-  await fail(lookup, "Failed to find local Auth users");
+  await fail(lookup, "Failed to list local Auth users");
 }
 
 const payload = await lookup.json() as {
   users?: Array<{ id: string; email?: string | null }>;
 };
 
-const existing = payload.users?.find((user) => user.id === userId || user.email === email);
+const existing = payload.users?.find((user) => user.email === email);
 
 const body = {
-  id: userId,
   email,
   password,
   email_confirm: true,
@@ -60,14 +60,9 @@ const body = {
   },
 };
 
-if (existing) {
-  if (existing.id !== userId) {
-    await fail(
-      new Response(null, { status: 409 }),
-      `A different Auth user already uses ${email}`,
-    );
-  }
+let userId: string;
 
+if (existing) {
   const response = await request(`/auth/v1/admin/users/${existing.id}`, {
     method: "PUT",
     body: JSON.stringify(body),
@@ -77,7 +72,8 @@ if (existing) {
     await fail(response, "Failed to update QA Auth user");
   }
 
-  console.log(`QA Auth user updated: ${existing.id}`);
+  userId = existing.id;
+  console.log(`QA Auth user updated: ${userId}`);
 } else {
   const response = await request("/auth/v1/admin/users", {
     method: "POST",
@@ -89,11 +85,8 @@ if (existing) {
   }
 
   const created = await response.json() as { id: string };
-  if (created.id !== userId) {
-    throw new Error(
-      `Created QA Auth user id ${created.id}, expected fixed id ${userId}.`,
-    );
-  }
-
-  console.log(`QA Auth user created: ${created.id}`);
+  userId = created.id;
+  console.log(`QA Auth user created: ${userId}`);
 }
+
+console.log(`QA_USER_ID=${userId}`);

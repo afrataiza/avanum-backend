@@ -1,6 +1,10 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { UpdateReadingProgressService } from "../_shared/reading/update-reading-progress-service.ts";
+import { ReadingEventDispatcher } from "../_shared/reading/events/dispatcher.ts";
+import { ExpeditionReadingEventHandler } from "../_shared/expeditions/reading-event-handler.ts";
+import { ExpeditionQueryService } from "../_shared/expeditions/query-service.ts";
+import { ExpeditionService } from "../_shared/expeditions/service.ts";
 import type { UpdateReadingProgressInput } from "../_shared/reading/types.ts";
 
 interface UpdateReadingProgressRequest {
@@ -106,7 +110,23 @@ Deno.serve(async (req) => {
 
     const result = await service.execute(user.id, input);
 
-    return response(result, 200);
+    const expeditionQuery = new ExpeditionQueryService(adminSupabase);
+    const expeditionService = new ExpeditionService(adminSupabase);
+    const dispatcher = new ReadingEventDispatcher();
+
+    dispatcher.register(
+      new ExpeditionReadingEventHandler({
+        query: expeditionQuery,
+        progress: expeditionService,
+      }),
+    );
+
+    await dispatcher.dispatch(result.events);
+
+    return response(
+      { reading: result.reading },
+      200,
+    );
   } catch (error) {
     console.error(error);
 

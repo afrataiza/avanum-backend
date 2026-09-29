@@ -598,36 +598,25 @@ Erros de negócio conhecidos retornam códigos HTTP coerentes, incluindo:
 
 O backend utiliza testes automatizados para serviços, mapeadores e domínios implementados.
 
-Coberturas já implementadas incluem:
+A execução local é padronizada pelo task runner nativo do Deno. A task geral mantém as permissões compartilhadas da suíte e usa a descoberta recursiva do Deno em `supabase/functions/_shared`.
 
-- GoogleBooksClient.
-- GoogleBooksMapper.
-- BookCatalogService.
-- Add-to-library.
-- Start-reading.
-- Update-reading-progress.
-- Update-reading-status.
-- XPService.
-- AchievementService.
-- Fluxos de consulta de Descobertas.
+Exemplos de execução por domínio:
 
-### Validação remota concluída
+```bash
+deno task test
+deno task test:reading
+deno task test:map
+deno task test:xp
+```
 
-Os fluxos de gamificação foram validados no ambiente remoto do Supabase, incluindo:
+Para depurar um caso específico, o Deno também permite executar um arquivo ou filtrar por nome:
 
-- Início de leitura com `+10 XP`.
-- Proteção contra XP duplicado no início.
-- Marcos de 10% com `+5 XP`.
-- Avanço direto por múltiplos marcos.
-- Conclusão com `+50 XP` além do marco de 100%.
-- Pausar, retomar e abandonar sem XP.
-- Consistência entre `user_xp` e `xp_transactions`.
-- Primeira leitura gerando `Primeira aventura`.
-- Primeira conclusão gerando `Primeiro destino`.
-- `source_reference` validado.
-- Tentativas artificiais de conceder Descobertas bloqueadas.
-- Ausência de duplicatas em `user_achievements`.
-- Endpoints `achievements` e `user-achievements` funcionando.
+```bash
+deno test --allow-env supabase/functions/_shared/reading/update-reading-progress-service.test.ts
+deno test --allow-env --filter="updates reading progress" supabase/functions/_shared
+```
+
+As instruções de onboarding e operação local ficam no `README.md`; este documento registra apenas as convenções técnicas relevantes à estratégia de testes.
 
 
 ## 15. Eventos de domínio da Reading

@@ -4,14 +4,14 @@
 -- Loaded by scripts/seed-qa.sh after local Auth provisioning.
 -- Keep this file as SQL only (no psql metacommands).
 
-do $
+do $$
 begin
   if not exists (
     select 1 from auth.users where email = 'qa@avanum.local'
   ) then
     raise exception 'QA Auth user qa@avanum.local must exist before loading supabase/seed.sql';
   end if;
-end $;
+end $$;
 
 
 -- 🌿 Elora receives a known explorer for local QA.

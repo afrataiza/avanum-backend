@@ -4,7 +4,6 @@ import {
 } from "jsr:@std/assert";
 
 import { StartReadingService } from "./start-reading-service.ts";
-import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
 

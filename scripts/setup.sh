@@ -12,13 +12,17 @@ command -v supabase >/dev/null 2>&1 || {
 echo "==> Starting local Supabase"
 supabase start
 
-echo "==> Resetting local database"
-supabase db reset
+echo "==> Resetting local database schema"
+supabase db reset --no-seed
+
 
 echo
 echo "Local backend is ready."
 echo "Supabase API: http://127.0.0.1:54321"
 echo "Supabase Studio: http://127.0.0.1:54323"
+echo
+echo "Initialize the QA environment with:"
+echo "  ./scripts/seed-qa.sh"
 echo
 echo "Start Edge Functions with:"
 echo "  supabase functions serve --env-file .env"

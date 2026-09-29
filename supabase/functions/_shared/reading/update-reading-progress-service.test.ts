@@ -4,7 +4,6 @@ import {
 } from "jsr:@std/assert";
 
 import { UpdateReadingProgressService } from "./update-reading-progress-service.ts";
-import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
 
@@ -42,16 +41,34 @@ function createReading(
   };
 }
 
-function rpcSuccess(reading: Reading): ReadingRpcResult {
+function rpcSuccess(
+  reading: Reading,
+  events: ReadingRpcResult["events"] = [],
+): ReadingRpcResult {
   return {
     reading,
-    events: [],
+    events,
   };
 }
 
 Deno.test("updates reading progress", async () => {
   const reading = createReading({ current_units: 150 });
-  const supabase = createMockSupabase(rpcSuccess(reading));
+  const supabase = createMockSupabase(
+    rpcSuccess(reading, [
+      {
+        eventId: "event-1",
+        type: "reading_progressed",
+        userId: "user-id",
+        readingId: "reading-id",
+        userBookId: "user-book-id",
+        mediaType: "physical",
+        previousUnits: 100,
+        currentUnits: 150,
+        deltaUnits: 50,
+        occurredAt: reading.updated_at,
+      },
+    ]),
+  );
   const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {
@@ -60,7 +77,11 @@ Deno.test("updates reading progress", async () => {
   });
 
   assertEquals(result.reading, reading);
-  assertEquals(result.events[0].deltaUnits, 50);
+  const event = result.events[0];
+  if (event.type !== "reading_progressed") {
+    throw new Error(`Expected reading_progressed event, got ${event.type}`);
+  }
+  assertEquals(event.deltaUnits, 50);
 });
 
 Deno.test("allows audiobook progress in minutes", async () => {
@@ -86,7 +107,31 @@ Deno.test("returns progress and completion events when reading completes", async
     status: "completed",
     completed_at: "2026-09-02T19:00:00.000Z",
   });
-  const supabase = createMockSupabase(rpcSuccess(reading));
+  const supabase = createMockSupabase(
+    rpcSuccess(reading, [
+      {
+        eventId: "event-1",
+        type: "reading_progressed",
+        userId: "user-id",
+        readingId: "reading-id",
+        userBookId: "user-book-id",
+        mediaType: "physical",
+        previousUnits: 100,
+        currentUnits: 300,
+        deltaUnits: 200,
+        occurredAt: reading.updated_at,
+      },
+      {
+        eventId: "event-2",
+        type: "reading_completed",
+        userId: "user-id",
+        readingId: "reading-id",
+        userBookId: "user-book-id",
+        mediaType: "physical",
+        occurredAt: reading.completed_at!,
+      },
+    ]),
+  );
   const service = new UpdateReadingProgressService(supabase);
 
   const result = await service.execute("user-id", {

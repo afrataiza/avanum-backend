@@ -114,3 +114,4 @@ supabase/
 - `docs/TECH-DOC.md`: arquitetura, domínio e decisões técnicas.
 - `docs/PRD.md`: requisitos do produto.
 - `supabase/seeds/README.md`: detalhes do ambiente de QA.
+- `docs/API-LOCAL.md`: guia da API local

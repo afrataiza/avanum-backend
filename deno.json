@@ -1,0 +1,18 @@
+{
+  "tasks": {
+    "test": "deno test --allow-env supabase/functions/_shared",
+    "test:reading": "deno test --allow-env supabase/functions/_shared/reading",
+    "test:map": "deno test --allow-env supabase/functions/_shared/map",
+    "test:xp": "deno test --allow-env supabase/functions/_shared/xp",
+    "serve": "supabase functions serve --env-file .env",
+    "serve:books-search": "supabase functions serve books-search --env-file .env",
+    "serve:book-details": "supabase functions serve book-details --env-file .env",
+    "serve:start-reading": "supabase functions serve start-reading --env-file .env",
+    "serve:update-reading-progress": "supabase functions serve update-reading-progress --env-file .env",
+    "serve:update-reading-status": "supabase functions serve update-reading-status --env-file .env",
+    "serve:map": "supabase functions serve map --env-file .env",
+    "setup": "./scripts/setup.sh",
+    "seed:qa": "./scripts/seed-qa.sh",
+    "login:qa": "./scripts/qa-login.sh"
+  }
+}

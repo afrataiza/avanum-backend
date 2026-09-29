@@ -66,7 +66,10 @@ begin
       gen_random_uuid(),
       qa_user_id,
       'qa@avanum.local',
-      '{"email":"qa@avanum.local","sub":"' || qa_user_id::text || '"}'::jsonb,
+      jsonb_build_object(
+        'email', 'qa@avanum.local',
+        'sub', qa_user_id::text
+      ),
       'email',
       now(),
       now()
@@ -100,7 +103,10 @@ begin
         gen_random_uuid(),
         existing_user_id,
         'qa@avanum.local',
-        '{"email":"qa@avanum.local","sub":"' || existing_user_id::text || '"}'::jsonb,
+        jsonb_build_object(
+          'email', 'qa@avanum.local',
+          'sub', existing_user_id::text
+        ),
         'email',
         now(),
         now()

@@ -1,5 +1,9 @@
 {
   "tasks": {
-    "test": "deno test --allow-env supabase/functions/_shared"
+    "test": "deno test --allow-env supabase/functions/_shared",
+    "test:script": "./scripts/test.sh",
+    "setup": "./scripts/setup.sh",
+    "seed:qa": "./scripts/seed-qa.sh",
+    "login:qa": "./scripts/qa-login.sh"
   }
 }

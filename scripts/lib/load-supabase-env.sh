@@ -13,14 +13,13 @@ if [ -f .env ]; then
   set +a
 fi
 
-if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
-  # The Supabase CLI exposes the local anon key through `supabase status`.
-  # This keeps qa-login.sh usable on a clean clone without requiring .env.
-  SUPABASE_ANON_KEY="$(supabase status -o env | sed -n 's/^ANON_KEY=//p')"
-  export SUPABASE_ANON_KEY
+if [ -z "${SUPABASE_URL:-}" ]; then
+  SUPABASE_URL="http://127.0.0.1:54321"
+  export SUPABASE_URL
 fi
 
-if [ -z "${SUPABASE_URL:-}" ]; then
-  SUPABASE_URL="$(supabase status -o env | sed -n 's/^API_URL=//p')"
-  export SUPABASE_URL
+if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+  echo "SUPABASE_ANON_KEY is required."
+  echo "Add the local anon key to .env before running qa-login.sh."
+  exit 1
 fi

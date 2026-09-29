@@ -66,7 +66,11 @@ Deno.test("updates reading progress and returns its event", async () => {
   });
 
   assertEquals(result.reading, reading);
-  assertEquals(result.events[0].deltaUnits, 50);
+  const event = result.events[0];
+  if (event.type !== "reading_progressed") {
+    throw new Error(`Expected reading_progressed event, got ${event.type}`);
+  }
+  assertEquals(event.deltaUnits, 50);
 });
 
 Deno.test("returns no events for a no-op progress update", async () => {

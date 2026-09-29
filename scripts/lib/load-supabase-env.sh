@@ -19,7 +19,13 @@ if [ -z "${SUPABASE_URL:-}" ]; then
 fi
 
 if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+  status_env="$(supabase status -o env 2>/dev/null || true)"
+  SUPABASE_ANON_KEY="$(printf '%s\n' "$status_env" | sed -n 's/^ANON_KEY=//p' | tr -d '\r')"
+  export SUPABASE_ANON_KEY
+fi
+
+if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
   echo "SUPABASE_ANON_KEY is required."
-  echo "Add the local anon key to .env before running qa-login.sh."
+  echo "Add the local anon key to .env or export it before running qa-login.sh."
   exit 1
 fi

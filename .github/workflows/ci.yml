@@ -12,8 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: Setup
+  test:
+    name: Test backend
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -32,34 +32,7 @@ jobs:
         with:
           version: latest
 
-      - name: Start Supabase and validate migrations
-        run: deno task setup
-
-      - name: Load QA fixtures
-        run: deno task seed:qa
-
-  tests:
-    name: Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: setup
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-          cache: true
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Start Supabase
+      - name: Prepare environment
         run: deno task setup
 
       - name: Load QA fixtures

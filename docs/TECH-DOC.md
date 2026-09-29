@@ -598,6 +598,21 @@ Erros de negócio conhecidos retornam códigos HTTP coerentes, incluindo:
 
 O backend utiliza testes automatizados para serviços, mapeadores e domínios implementados.
 
+### Execução local
+
+A suíte local é executada pelo task runner nativo do Deno:
+
+```bash
+deno task test
+```
+
+A task executa recursivamente os testes em `supabase/functions/_shared` e centraliza as permissões necessárias para a suíte. Novos arquivos `*.test.ts` dentro desse diretório são descobertos automaticamente pelo Deno.
+
+O wrapper `./scripts/test.sh` permanece disponível como interface compatível para scripts e automações existentes, delegando a execução para `deno task test`.
+
+
+O backend utiliza testes automatizados para serviços, mapeadores e domínios implementados.
+
 Coberturas já implementadas incluem:
 
 - GoogleBooksClient.

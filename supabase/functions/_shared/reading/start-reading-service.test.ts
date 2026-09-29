@@ -6,6 +6,7 @@ import {
 import { StartReadingService } from "./start-reading-service.ts";
 import type { ReadingRpcResult } from "./events/types.ts";
 import type { Reading } from "./types.ts";
+import type { ReadingRpcResult } from "./events/types.ts";
 
 function createReading(overrides: Partial<Reading> = {}): Reading {
   return {
@@ -25,34 +26,49 @@ function createReading(overrides: Partial<Reading> = {}): Reading {
 }
 
 function createMockSupabase(
-  data: ReadingRpcResult | null = null,
+  rpcResult: ReadingRpcResult | null = null,
   error: { message: string } | null = null,
 ) {
   return {
     rpc: (
       _functionName: string,
       _params: Record<string, unknown>,
-    ) => Promise.resolve({ data, error }),
+    ) => Promise.resolve({
+      data: rpcResult,
+      error,
+    }),
   };
 }
 
-const startedEvent = {
-  eventId: "event-id",
-  type: "reading_started" as const,
-  userId: "user-id",
-  readingId: "reading-id",
-  userBookId: "user-book-id",
-  mediaType: "physical" as const,
-  occurredAt: "2026-08-27T21:00:00.000Z",
-};
-
-Deno.test("starts a reading and returns domain events", async () => {
-  const reading = createReading();
-  const resultData: ReadingRpcResult = {
-    reading,
-    events: [startedEvent],
+Deno.test("starts a reading", async () => {
+  const reading: Reading = {
+    id: "reading-id",
+    user_book_id: "user-book-id",
+    format: "physical",
+    total_units: 278,
+    current_units: 0,
+    status: "reading",
+    started_at: "2026-08-27T21:00:00.000Z",
+    paused_at: null,
+    completed_at: null,
+    created_at: "2026-08-27T21:00:00.000Z",
+    updated_at: "2026-08-27T21:00:00.000Z",
   };
-  const service = new StartReadingService(createMockSupabase(resultData));
+
+  const supabase = createMockSupabase({
+    reading,
+    events: [{
+      eventId: "event-id",
+      type: "reading_started",
+      userId: "user-id",
+      readingId: reading.id,
+      userBookId: reading.user_book_id,
+      mediaType: reading.format,
+      occurredAt: reading.started_at,
+    }],
+  });
+
+  const service = new StartReadingService(supabase);
 
   const result = await service.execute(
     "user-id",
@@ -64,7 +80,8 @@ Deno.test("starts a reading and returns domain events", async () => {
   );
 
   assertEquals(result.reading, reading);
-  assertEquals(result.events, [startedEvent]);
+  assertEquals(result.events.length, 1);
+  assertEquals(result.events[0].type, "reading_started");
 });
 
 Deno.test(

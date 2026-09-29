@@ -611,8 +611,6 @@ A task executa recursivamente os testes em `supabase/functions/_shared` e centra
 O wrapper `./scripts/test.sh` permanece disponível como interface compatível para scripts e automações existentes, delegando a execução para `deno task test`.
 
 
-O backend utiliza testes automatizados para serviços, mapeadores e domínios implementados.
-
 Coberturas já implementadas incluem:
 
 - GoogleBooksClient.

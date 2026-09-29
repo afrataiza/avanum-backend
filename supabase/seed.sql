@@ -69,14 +69,18 @@ on conflict (id) do update set
 insert into public.user_achievements (id,user_id,achievement_id,source_reference,achieved_at)
 select '50000000-0000-0000-0000-000000000001',(select id from auth.users where email = 'qa@avanum.local'),a.id,'qa:reading_started','2026-09-01T09:00:00Z'
 from public.achievements a where a.code='first_reading'
-on conflict (id) do update set
-  user_id=excluded.user_id,achievement_id=excluded.achievement_id,source_reference=excluded.source_reference,achieved_at=excluded.achieved_at;
+on conflict (user_id, achievement_id) do update set
+  id=excluded.id,
+  source_reference=excluded.source_reference,
+  achieved_at=excluded.achieved_at;
 
 insert into public.user_achievements (id,user_id,achievement_id,source_reference,achieved_at)
 select '50000000-0000-0000-0000-000000000002',(select id from auth.users where email = 'qa@avanum.local'),a.id,'qa:reading_completed','2026-08-22T18:00:00Z'
 from public.achievements a where a.code='first_completion'
-on conflict (id) do update set
-  user_id=excluded.user_id,achievement_id=excluded.achievement_id,source_reference=excluded.source_reference,achieved_at=excluded.achieved_at;
+on conflict (user_id, achievement_id) do update set
+  id=excluded.id,
+  source_reference=excluded.source_reference,
+  achieved_at=excluded.achieved_at;
 
 insert into public.expeditions (
   id,created_by,name,description,objective_type,target_value,starts_at,ends_at,active

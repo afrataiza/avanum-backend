@@ -2,22 +2,62 @@
 
 Backend do Avanum, um diário de leitura gamificado. O projeto usa Supabase, PostgreSQL, Supabase Auth e Edge Functions executadas em runtime Deno.
 
+## Comece aqui
+
+Para uma pessoa nova no projeto:
+
+1. Leia este README para entender o backend e os comandos principais.
+2. Siga `docs/DEVELOPER-ONBOARDING.md` para configurar um ambiente local do zero.
+3. Use `docs/QA-PLAYBOOK.md` para reproduzir cenários de QA.
+4. Consulte `docs/API-LOCAL.md` para testar as Edge Functions manualmente.
+5. Consulte `docs/TECH-DOC.md` para arquitetura, domínio e decisões técnicas.
+6. Consulte `docs/PRD.md` para contexto funcional do produto.
+
+## O que existe hoje
+
+O backend concentra:
+
+- catálogo de livros via Google Books;
+- biblioteca pessoal;
+- jornada de leitura;
+- XP e Descobertas;
+- Expedições;
+- Mapa;
+- Edge Functions;
+- PostgreSQL, migrations e RLS;
+- ambiente local determinístico de QA.
+
+O frontend é mantido separadamente.
+
 ## Pré-requisitos
 
-- Deno
+- Git
+- Deno v2
 - Supabase CLI
-- PostgreSQL client (`psql`) para o bootstrap de QA
+- PostgreSQL client (`psql`)
+- Docker com suporte ao ambiente local do Supabase
+- `curl`
+
+Confirme as instalações:
+
+```bash
+git --version
+deno --version
+supabase --version
+psql --version
+curl --version
+```
 
 ## Primeiros passos
 
-Clone o repositório e prepare o ambiente local:
+Depois de clonar:
 
 ```bash
 deno task setup
 deno task seed:qa
 ```
 
-Depois, rode a suíte:
+Execute a suíte:
 
 ```bash
 deno task test
@@ -46,45 +86,45 @@ A task de testes descobre automaticamente arquivos `*.test.ts` em `supabase/func
 
 ## Teste direcionado
 
-O Deno permite executar um arquivo específico:
+Teste um arquivo específico:
 
 ```bash
 deno test --allow-env supabase/functions/_shared/reading/update-reading-progress-service.test.ts
 ```
 
-Também é possível filtrar pelo nome do teste:
+Filtre pelo nome do teste:
 
 ```bash
 deno test --allow-env --filter="updates reading progress" supabase/functions/_shared
 ```
 
-Para usar o wrapper:
+O wrapper:
 
 ```bash
 ./scripts/test.sh
 ```
 
-Ele apenas delega para `deno task test`.
+apenas delega para `deno task test`.
 
 ## Edge Functions localmente
 
-O Supabase CLI é responsável por servir as Edge Functions. As tasks do Deno padronizam esses comandos:
+Suba todas as funções:
 
 ```bash
 deno task serve
 ```
 
-ou uma função específica:
+Ou uma função específica:
 
 ```bash
 deno task serve:books-search
 ```
 
-As funções que usam integrações externas esperam as variáveis definidas no arquivo `.env`.
+As funções que usam integrações externas esperam as variáveis definidas no ambiente local. Use `.env.example` como referência e nunca comite secrets reais.
 
 ## Ambiente QA
 
-O bootstrap de QA é determinístico e pode ser executado novamente para restaurar o estado esperado:
+O bootstrap de QA é determinístico:
 
 ```bash
 deno task seed:qa
@@ -95,23 +135,55 @@ Usuário QA padrão:
 - Email: `qa@avanum.local`
 - Senha: `avanum-local-qa`
 
+Login:
+
+```bash
+deno task login:qa
+```
+
 Detalhes dos fixtures estão em `supabase/seeds/README.md`.
 
 ## Estrutura principal
 
 ```text
-docs/              documentação técnica e produto
-scripts/            automações locais
+docs/
+  API-LOCAL.md
+  DEVELOPER-ONBOARDING.md
+  PRD.md
+  QA-PLAYBOOK.md
+  TECH-DOC.md
+scripts/
 supabase/
-  functions/        Edge Functions e domínio compartilhado
-  migrations/       migrations PostgreSQL
-  seed.sql          fixtures de QA
+  functions/
+  migrations/
+  sql/
+  seed.sql
+  seeds/
+.env.example
+deno.json
 ```
+
+## Fluxo de contribuição
+
+1. Criar ou revisar o card no Jira.
+2. Criar branch usando o ID do card.
+3. Implementar a mudança.
+4. Rodar testes locais.
+5. Fazer validação manual quando aplicável.
+6. Abrir PR com o padrão `[ATSA-ID] descrição`.
+7. Aguardar revisão.
+8. Fazer merge após aprovação.
+9. Finalizar o card no Jira.
+10. Atualizar a documentação quando a mudança afetar arquitetura, contratos ou operação.
+
+O CI valida PRs e pushes para `main` usando o mesmo fluxo de setup, fixtures e testes do ambiente local.
 
 ## Documentação
 
-- `README.md`: instalação, comandos e operação local.
-- `docs/TECH-DOC.md`: arquitetura, domínio e decisões técnicas.
+- `README.md`: porta de entrada e comandos rápidos.
+- `docs/DEVELOPER-ONBOARDING.md`: onboarding completo.
+- `docs/QA-PLAYBOOK.md`: estratégia de QA local e validação manual.
+- `docs/API-LOCAL.md`: cookbook das Edge Functions.
+- `docs/TECH-DOC.md`: arquitetura e decisões técnicas.
 - `docs/PRD.md`: requisitos do produto.
-- `supabase/seeds/README.md`: detalhes do ambiente de QA.
-- `docs/API-LOCAL.md`: guia da API local
+- `supabase/seeds/README.md`: fixtures e bootstrap de QA.

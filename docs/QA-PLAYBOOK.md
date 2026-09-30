@@ -1,74 +1,37 @@
 # Avanum Backend — QA Playbook
 
-Este guia descreve como validar o backend do Avanum localmente e como reproduzir os principais fluxos de QA.
+Este documento cobre somente o fluxo de QA do backend. Pré-requisitos, configuração do ambiente, comandos de desenvolvimento e execução das funções estão centralizados no `README.md`.
 
 ## 1. Objetivo
 
-O QA local deve permitir que uma pessoa reproduza cenários conhecidos sem depender de dados manuais ou de um estado anterior do banco.
+O QA deve permitir validar alterações de forma reproduzível, usando o ambiente local determinístico e os cenários definidos para cada domínio.
 
-O cenário oficial usa:
+A validação combina:
 
-- Supabase local;
-- banco resetável;
-- usuário QA determinístico;
-- fixtures de domínio;
 - suíte automatizada;
-- chamadas manuais às Edge Functions quando necessário.
+- fixtures determinísticos;
+- validações manuais de integração quando necessárias;
+- checagem de ownership, estados inválidos e idempotência.
 
-## 2. Pré-requisitos
+## 2. Cenário oficial de QA
 
-Antes de iniciar:
+O ambiente oficial usa o usuário e os fixtures definidos em:
 
-```bash
-deno --version
-supabase --version
-psql --version
-curl --version
-```
+`supabase/seeds/README.md`
 
-O Docker usado pelo Supabase local também precisa estar disponível e em execução.
+Para preparar ou restaurar o cenário, siga o setup descrito no `README.md`.
 
-## 3. Bootstrap de ambiente limpo
+Os IDs documentados nos fixtures são locais e não devem ser usados como identificadores do ambiente remoto.
 
-Para preparar um ambiente local:
+## 3. Suíte automatizada
 
-```bash
-deno task setup
-deno task seed:qa
-```
-
-O primeiro comando sobe o Supabase e aplica as migrations por reset.
-
-O segundo comando:
-
-1. reseta o banco sem executar o seed automático;
-2. provisiona o usuário QA;
-3. carrega os fixtures determinísticos.
-
-Usuário QA padrão:
-
-```text
-email: qa@avanum.local
-senha: avanum-local-qa
-```
-
-Para autenticar:
-
-```bash
-deno task login:qa
-```
-
-Guarde o `access_token` retornado para as chamadas autenticadas.
-
-## 4. Suíte automatizada
-
-Execute tudo:
+A validação mínima de regressão é:
 
 ```bash
 deno task test
 ```
 
-Domínios específicos:
+Quando a alteração estiver restrita a um domínio, pode-se executar a task correspondente antes da suíte completa:
 
 ```bash
 deno task test:reading
@@ -76,287 +39,133 @@ deno task test:map
 deno task test:xp
 ```
 
-Um teste isolado pode ser executado diretamente com Deno.
+O CI executa a suíte completa.
 
-Uma alteração deve passar pela suíte relevante antes de abrir o PR.
+## 4. Validações manuais
 
-## 5. Servir as Edge Functions
+As validações abaixo devem ser executadas quando a alteração afetar o comportamento das Edge Functions, contratos ou integrações.
 
-Em outro terminal:
-
-```bash
-deno task serve
-```
-
-Base URL:
-
-```text
-http://127.0.0.1:54321/functions/v1
-```
-
-Ou sirva apenas a função necessária usando as tasks específicas documentadas em `docs/DEVELOPER-ONBOARDING.md`.
-
-## 6. Variáveis locais
-
-As variáveis esperadas estão em `.env.example`.
-
-Para chamadas locais autenticadas, configure pelo menos as variáveis de Supabase necessárias ao ambiente.
-
-Secrets de integrações externas devem permanecer fora do repositório.
-
-## 7. Fluxos manuais
-
-### 7.1 Buscar livro
-
-Endpoint:
-
-```http
-GET /books-search?q=the%20hobbit
-```
-
-Exemplo:
-
-```bash
-curl "$BASE_URL/books-search?q=the%20hobbit"
-```
+### 4.1 Book Catalog
 
 Validar:
 
-- resposta HTTP de sucesso;
-- contrato próprio do Avanum;
-- lista de livros;
-- ausência de dependência do payload bruto do provider.
+- busca retorna o contrato próprio do Avanum;
+- detalhes do livro são retornados corretamente;
+- ausência de metadados opcionais não quebra a resposta;
+- provider externo não é exposto ao contrato do frontend.
 
-### 7.2 Detalhar livro
+Os exemplos de chamadas estão em `docs/API-LOCAL.md`.
 
-```bash
-curl "$BASE_URL/book-details?id=<BOOK_ID>"
-```
-
-Validar os dados principais e o tratamento de metadados opcionais.
-
-### 7.3 Adicionar à biblioteca
-
-```bash
-curl -X POST "$BASE_URL/add-to-library" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "book": {
-      "externalId": "qa-demo-book",
-      "title": "Livro de demonstração",
-      "authors": ["Autora de Demonstração"],
-      "synopsis": "Livro usado para validar a integração local.",
-      "coverUrl": null,
-      "publicationYear": 2026,
-      "categories": ["Fiction"],
-      "language": "pt-BR",
-      "isbn10": null,
-      "isbn13": null
-    }
-  }'
-```
+### 4.2 Biblioteca
 
 Validar:
 
 - autenticação obrigatória;
-- livro persistido;
-- relacionamento com o usuário autenticado;
-- ausência de duplicação para a mesma relação.
+- livro persistido corretamente;
+- relação com o usuário autenticado;
+- tentativa de duplicação tratada corretamente;
+- usuário não acessa biblioteca de outra pessoa.
 
-### 7.4 Iniciar uma aventura
+### 4.3 Reading
 
-```bash
-curl -X POST "$BASE_URL/start-reading" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userBookId": "20000000-0000-0000-0000-000000000001",
-    "format": "physical",
-    "totalUnits": 300
-  }'
+Validar o fluxo principal:
+
+```text
+start-reading
+    ↓
+update-reading-progress
+    ↓
+reading-details
+    ↓
+update-reading-status
 ```
 
-Validar:
+Verificar:
 
 - ownership;
-- formato permitido;
+- formato válido;
 - total positivo;
 - criação da Reading;
 - sincronização com UserBook;
-- XP de início;
-- idempotência.
-
-### 7.5 Atualizar progresso
-
-Exemplo usando o fixture do Hobbit:
-
-```bash
-curl -X PUT "$BASE_URL/update-reading-progress" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "readingId": "30000000-0000-0000-0000-000000000001",
-    "currentUnits": 150
-  }'
-```
-
-Validar:
-
-- progresso absoluto;
 - progresso não diminui;
 - progresso não ultrapassa o total;
-- marcos de 10%;
-- XP de marco;
-- ausência de duplicidade;
-- conclusão automática ao atingir o total.
+- conclusão automática ao atingir o total;
+- transições válidas de status;
+- estados encerrados não retornam ao fluxo ativo.
 
-### 7.6 Pausar e retomar
-
-Pausar:
-
-```bash
-curl -X PUT "$BASE_URL/update-reading-status" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "readingId": "30000000-0000-0000-0000-000000000001",
-    "status": "paused"
-  }'
-```
-
-Retomar:
-
-```bash
-curl -X PUT "$BASE_URL/update-reading-status" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "readingId": "30000000-0000-0000-0000-000000000001",
-    "status": "reading"
-  }'
-```
+### 4.4 XP
 
 Validar:
 
-- transição permitida;
-- progresso preservado;
-- timestamps coerentes;
-- nenhum XP adicional.
+- início de leitura concede a recompensa esperada;
+- novos marcos de 10% não são duplicados;
+- conclusão concede a recompensa esperada;
+- pausar, retomar e abandonar não concedem XP;
+- repetir a mesma operação não duplica a concessão.
 
-### 7.7 Abandonar
-
-```bash
-curl -X PUT "$BASE_URL/update-reading-status" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "readingId": "30000000-0000-0000-0000-000000000001",
-    "status": "abandoned"
-  }'
-```
-
-Validar que o histórico permanece e que a leitura encerrada não pode voltar ao fluxo ativo.
-
-### 7.8 Consultar detalhes
-
-```bash
-curl "$BASE_URL/reading-details?readingId=30000000-0000-0000-0000-000000000001" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Validar ownership e consistência entre Reading, UserBook e livro.
-
-### 7.9 Descobertas
-
-Catálogo:
-
-```bash
-curl "$BASE_URL/achievements" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Descobertas da pessoa:
-
-```bash
-curl "$BASE_URL/user-achievements" \
-  -H "Authorization: Bearer $TOKEN"
-```
+### 4.5 Descobertas
 
 Validar:
 
-- catálogo ativo;
-- ownership da consulta;
-- concessão única;
-- critérios calculados no backend.
+- catálogo ativo disponível;
+- primeira leitura pode desbloquear a descoberta correspondente;
+- conclusão de leitura pode avaliar descobertas elegíveis;
+- descoberta já concedida não é duplicada;
+- critérios são calculados pelo backend;
+- usuário só consulta suas próprias conquistas.
 
-### 7.10 Expedições
+### 4.6 Expedições
 
-Listar:
+Quando a alteração afetar Expedições, validar:
 
-```bash
-curl "$BASE_URL/expeditions" \
-  -H "Authorization: Bearer $TOKEN"
-```
+- criação;
+- consulta;
+- aplicação de progresso;
+- conclusão;
+- cancelamento;
+- ownership;
+- idempotência de atualizações repetidas.
 
-Criar:
+### 4.7 Mapa
 
-```bash
-curl -X POST "$BASE_URL/create-expedition" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Cem páginas",
-    "description": "Ler cem páginas durante a expedição.",
-    "objectiveType": "pages_read",
-    "targetValue": 100,
-    "startsAt": "2026-09-29T00:00:00Z",
-    "endsAt": "2026-10-29T23:59:59Z"
-  }'
-```
+Quando a alteração afetar o Mapa, validar:
 
-Validar progresso e idempotência ao usar a mesma chave de operação.
+- consulta autenticada;
+- ownership;
+- estado esperado dos nós do fixture;
+- atualização causada pelos eventos relevantes do domínio.
 
-### 7.11 Mapa
+## 5. Regressão e reprodução
 
-```bash
-curl "$BASE_URL/map" \
-  -H "Authorization: Bearer $TOKEN"
-```
+Ao detectar uma falha:
 
-Validar ownership e o estado esperado dos nós do fixture QA.
+1. restaurar o cenário determinístico de QA usando o procedimento oficial do `README.md`;
+2. reproduzir o fluxo com os mesmos dados;
+3. confirmar a falha;
+4. corrigir;
+5. executar novamente o teste automatizado;
+6. repetir a validação manual relevante.
 
-## 8. Reset e reprodução
+O objetivo é evitar que a correção dependa de estado residual do ambiente local.
 
-Para voltar ao cenário oficial:
-
-```bash
-deno task seed:qa
-```
-
-Depois, autentique novamente se necessário:
-
-```bash
-deno task login:qa
-```
-
-O objetivo é que o mesmo fluxo possa ser reproduzido por outra pessoa usando os mesmos comandos.
-
-## 9. Checklist antes do PR
+## 6. Checklist antes do PR
 
 - [ ] Suíte relevante passando localmente.
-- [ ] `deno task test` passando quando houver mudança de domínio compartilhado.
-- [ ] Migrations aplicando após reset limpo.
-- [ ] Fixtures QA carregando sem intervenção manual.
-- [ ] Fluxo manual validado quando a mudança altera uma Edge Function.
+- [ ] `deno task test` passando quando houver mudança compartilhada.
+- [ ] Migrations válidas em ambiente limpo.
+- [ ] Fixtures QA carregadas.
+- [ ] Fluxo manual relevante validado.
 - [ ] RLS/ownership considerado.
 - [ ] Idempotência considerada para operações repetíveis.
+- [ ] Estados inválidos e transições proibidas considerados.
 - [ ] Nenhum secret commitado.
-- [ ] Documentação atualizada se contrato, arquitetura ou operação mudarem.
+- [ ] Documentação de contrato atualizada quando necessário.
 
-## 10. CI
+## 7. CI
 
-O GitHub Actions executa, nesta ordem:
+O CI é a última camada de regressão antes do merge e deve permanecer consistente com os comandos oficiais do projeto.
+
+Fluxo:
 
 ```text
 Checkout
@@ -372,16 +181,15 @@ Load QA fixtures
 Run test suite
 ```
 
-O CI é a validação mínima obrigatória para PRs direcionados à `main`.
+Uma falha em qualquer etapa deve bloquear a validação do PR.
 
-## 11. Critério de aceite de QA
+## 8. Critério de aceite
 
-Uma mudança é considerada validada quando:
+Uma alteração é considerada validada quando:
 
-1. o ambiente limpo pode ser preparado;
-2. migrations são aplicadas por reset;
-3. fixtures determinísticos carregam;
-4. a suíte automatizada passa;
-5. os fluxos manuais relevantes passam;
-6. ownership, idempotência e estados inválidos são considerados;
-7. outro desenvolvedor consegue reproduzir o cenário seguindo esta documentação.
+- os testes automatizados passam;
+- os cenários manuais relevantes passam;
+- ownership e regras de segurança foram verificados quando aplicáveis;
+- idempotência foi verificada nas operações repetíveis;
+- o cenário pode ser reproduzido a partir dos fixtures oficiais;
+- o CI termina com sucesso.

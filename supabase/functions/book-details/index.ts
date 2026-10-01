@@ -1,7 +1,11 @@
 import { BookCatalogProviderError } from "../_shared/book-catalog/errors.ts";
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { BookCatalogService } from "../_shared/book-catalog/book-catalog-service.ts";
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   try {
     const url = new URL(req.url);
     const id = url.searchParams.get("id")?.trim();
@@ -14,7 +18,7 @@ Deno.serve(async (req) => {
         {
           status: 400,
           headers: {
-            "Content-Type": "application/json",
+            ...jsonHeaders(),
           },
         },
       );

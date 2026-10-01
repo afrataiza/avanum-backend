@@ -460,3 +460,15 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/map/deno.json"
 entrypoint = "./functions/map/index.ts"
+
+[functions.user-library]
+enabled = true
+verify_jwt = false
+import_map = "./functions/user-library/deno.json"
+entrypoint = "./functions/user-library/index.ts"
+
+[functions.user-xp]
+enabled = true
+verify_jwt = false
+import_map = "./functions/user-xp/deno.json"
+entrypoint = "./functions/user-xp/index.ts"

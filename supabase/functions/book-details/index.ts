@@ -1,7 +1,11 @@
 import { BookCatalogProviderError } from "../_shared/book-catalog/errors.ts";
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { BookCatalogService } from "../_shared/book-catalog/book-catalog-service.ts";
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   try {
     const url = new URL(req.url);
     const id = url.searchParams.get("id")?.trim();
@@ -14,7 +18,7 @@ Deno.serve(async (req) => {
         {
           status: 400,
           headers: {
-            "Content-Type": "application/json",
+            ...jsonHeaders(),
           },
         },
       );
@@ -30,18 +34,14 @@ Deno.serve(async (req) => {
         }),
         {
           status: 404,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: jsonHeaders(),
         },
       );
     }
 
     return new Response(JSON.stringify(book), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: jsonHeaders(),
     });
   } catch (error) {
     console.error(error);
@@ -53,9 +53,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 503,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: jsonHeaders(),
         },
       );
     }
@@ -66,9 +64,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: jsonHeaders(),
       },
     );
   }

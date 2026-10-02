@@ -1,10 +1,13 @@
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ExpeditionService } from "../_shared/expeditions/service.ts";
 
-const jsonHeaders = { "Content-Type": "application/json" };
-function response(body: unknown, status: number) { return new Response(JSON.stringify(body), { status, headers: jsonHeaders }); }
+function response(body: unknown, status: number) { return new Response(JSON.stringify(body), { status, headers: jsonHeaders() }); }
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   try {
     if (req.method !== "PUT") return response({ error: "Method not allowed" }, 405);
     const authorization = req.headers.get("Authorization");

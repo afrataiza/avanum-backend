@@ -1,18 +1,18 @@
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { AchievementQueryService } from "../_shared/achievements/query-service.ts";
-
-const jsonHeaders = {
-  "Content-Type": "application/json",
-};
 
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: jsonHeaders,
+    headers: jsonHeaders(),
   });
 }
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   try {
     if (req.method !== "GET") {
       return response({ error: "Method not allowed" }, 405);

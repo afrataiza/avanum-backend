@@ -1,3 +1,4 @@
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { StartReadingService } from "../_shared/reading/start-reading-service.ts";
@@ -16,18 +17,17 @@ interface StartReadingRequest {
   totalUnits: number;
 }
 
-const jsonHeaders = {
-  "Content-Type": "application/json",
-};
-
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: jsonHeaders,
+    headers: jsonHeaders(),
   });
 }
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   try {
     if (req.method !== "POST") {
       return response(

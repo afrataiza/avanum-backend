@@ -34,18 +34,14 @@ Deno.serve(async (req) => {
         }),
         {
           status: 404,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: jsonHeaders(),
         },
       );
     }
 
     return new Response(JSON.stringify(book), {
       status: 200,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: jsonHeaders(),
     });
   } catch (error) {
     console.error(error);
@@ -57,9 +53,7 @@ Deno.serve(async (req) => {
         }),
         {
           status: 503,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: jsonHeaders(),
         },
       );
     }
@@ -70,9 +64,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: jsonHeaders(),
       },
     );
   }

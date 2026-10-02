@@ -1,4 +1,5 @@
 import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { UpdateReadingStatusService } from "../_shared/reading/update-reading-status-service.ts";
@@ -14,11 +15,14 @@ const allowedStatuses = ["reading", "paused", "abandoned"] as const;
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: jsonHeaders(),
+    headers: jsonHeaders()(),
   });
 }
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 

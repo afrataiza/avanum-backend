@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
+import { getXPLevel } from "../_shared/xp/level.ts";
 
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -63,10 +64,20 @@ Deno.serve(async (req) => {
       return response({ error: "Failed to get XP transactions" }, 500);
     }
 
+    const totalXp = balance?.total_xp ?? 0;
+    const level = getXPLevel(totalXp);
+
     return response({
-      balance: balance ?? {
-        user_id: user.id,
-        total_xp: 0,
+      balance: {
+        ...(balance ?? {
+          user_id: user.id,
+          total_xp: 0,
+        }),
+        level: level.level,
+        level_name: level.name,
+        level_xp: level.levelXp,
+        level_xp_required: level.levelXpRequired,
+        level_progress: level.levelProgress,
       },
       transactions: transactions ?? [],
     }, 200);

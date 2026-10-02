@@ -1,4 +1,5 @@
 import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
+import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { AddToLibraryService } from "../_shared/library/add-to-library-service.ts";
 import type { BookInput } from "../_shared/library/types.ts";
@@ -10,11 +11,14 @@ interface AddToLibraryRequest {
 function response(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: jsonHeaders(),
+    headers: jsonHeaders()(),
   });
 }
 
 Deno.serve(async (req) => {
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 

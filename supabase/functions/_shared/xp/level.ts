@@ -7,16 +7,16 @@ export type XPLevel = {
 }
 
 const LEVEL_NAMES = [
-  'Iniciante',
-  'Curiosa',
-  'Aventureira',
-  'Exploradora',
-  'Desbravadora',
+  'Aprendiz',
+  'Observador',
+  'Aventureiro',
+  'Explorador',
+  'Desbravador',
+  'Navegador',
   'Viajante',
-  'Cartógrafa',
-  'Erudita',
-  'Mestra',
-  'Lendária',
+  'Sábio',
+  'Mestre',
+  'Lendário',
 ] as const
 
 export function getXPLevel(totalXp: number): XPLevel {

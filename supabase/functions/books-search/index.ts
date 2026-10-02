@@ -30,9 +30,7 @@ Deno.serve(async (req) => {
       JSON.stringify(result),
       {
         status: 200,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: jsonHeaders(),
       },
     );
   } catch (error) {
@@ -44,9 +42,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: jsonHeaders(),
       },
     );
   }

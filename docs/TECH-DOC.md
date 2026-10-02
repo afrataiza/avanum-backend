@@ -427,6 +427,37 @@ A operação mantém o estado da leitura e os efeitos de gamificação aplicáve
 | Concluir leitura | +50 |
 | Pausar / retomar / abandonar | +0 |
 
+### Níveis e progressão
+
+O nível é uma projeção derivada do XP acumulado e não é persistido como dado separado.
+
+Faixas:
+
+| Nível | XP acumulado | Nome |
+|---|---:|---|
+| 1 | 0–499 | Iniciante |
+| 2 | 500–999 | Curiosa |
+| 3 | 1.000–1.999 | Aventureira |
+| 4 | 2.000–2.999 | Exploradora |
+| 5 | 3.000–3.999 | Desbravadora |
+| 6 | 4.000–4.999 | Viajante |
+| 7 | 5.000–5.999 | Cartógrafa |
+| 8 | 6.000–6.999 | Erudita |
+| 9 | 7.000–7.999 | Mestra |
+| 10+ | a partir de 8.000 | Lendária |
+
+A partir do nível 4, cada novo nível exige 1.000 XP adicionais. O nome Lendária é mantido para níveis acima de 10.
+
+O endpoint user-xp deriva e expõe:
+
+- level
+- level_name
+- level_xp
+- level_xp_required
+- level_progress
+
+level_xp representa o XP acumulado dentro do nível atual e level_progress o percentual até o próximo nível.
+
 ### Idempotência
 
 Cada concessão utiliza uma chave determinística:

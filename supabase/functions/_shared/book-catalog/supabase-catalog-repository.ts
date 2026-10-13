@@ -1,6 +1,26 @@
 import type { BookCatalogRepository } from "./catalog-repository.ts";
 import type { BookCatalogItem, BookSearchResult } from "./types.ts";
 
+type SupabaseError = {
+  code?: string;
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function throwRepositoryError(operation: string, error: SupabaseError): never {
+  // Avoid logging query parameters or any credentials; these fields contain database diagnostics only.
+  console.error(JSON.stringify({
+    event: "catalog_repository_error",
+    operation,
+    code: error.code ?? null,
+    message: error.message,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  }));
+  throw new Error(`Catalog repository operation failed: ${operation}`);
+}
+
 export class SupabaseCatalogRepository implements BookCatalogRepository {
   constructor(private readonly supabase: any) {}
 
@@ -11,7 +31,7 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
       .eq("query_key", queryKey)
       .maybeSingle();
 
-    if (error) throw new Error("Failed to read catalog search cache");
+    if (error) throwRepositoryError("search_cache_read", error);
     if (!data) return null;
 
     return {
@@ -37,7 +57,7 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
       .lte("expires_at", cachedAt.toISOString());
 
     if (cleanupError) {
-      throw new Error("Failed to clean expired catalog search cache");
+      throwRepositoryError("search_cache_cleanup", cleanupError);
     }
 
     const { error } = await this.supabase
@@ -50,7 +70,7 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
         expires_at: expiresAt.toISOString(),
       }, { onConflict: "query_key" });
 
-    if (error) throw new Error("Failed to write catalog search cache");
+    if (error) throwRepositoryError("search_cache_write", error);
   }
 
   async getBookByExternalId(id: string) {
@@ -60,7 +80,7 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
       .eq("external_id", id)
       .maybeSingle();
 
-    if (error) throw new Error("Failed to read persisted catalog book");
+    if (error) throwRepositoryError("book_details_read", error);
     if (!data) return null;
 
     return {
@@ -97,6 +117,6 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
         catalog_synced_at: syncedAt,
       }, { onConflict: "external_id" });
 
-    if (error) throw new Error("Failed to persist catalog book");
+    if (error) throwRepositoryError("book_details_write", error);
   }
 }

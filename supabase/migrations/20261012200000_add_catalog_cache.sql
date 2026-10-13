@@ -21,3 +21,9 @@ alter table public.catalog_search_cache enable row level security;
 grant select, insert, update, delete
   on table public.catalog_search_cache
   to service_role;
+
+-- Catalog details are persisted by the trusted Edge Function service client.
+-- Do not grant these privileges to anon or authenticated.
+grant select, insert, update
+  on table public.books
+  to service_role;

@@ -16,3 +16,8 @@ create index catalog_search_cache_expires_at_idx
   on public.catalog_search_cache(expires_at);
 
 alter table public.catalog_search_cache enable row level security;
+
+-- The cache is private backend infrastructure. Never expose it to anon/authenticated.
+grant select, insert, update, delete
+  on table public.catalog_search_cache
+  to service_role;

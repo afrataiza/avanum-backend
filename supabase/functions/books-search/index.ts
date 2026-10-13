@@ -1,4 +1,4 @@
-import { BookCatalogService } from "../_shared/book-catalog/book-catalog-service.ts";
+import { createCatalogService } from "../_shared/book-catalog/create-catalog-service.ts";
 import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
 
 Deno.serve(async (req) => {
@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const service = new BookCatalogService();
+    const service = createCatalogService();
     const result = await service.search(query);
 
     return new Response(

@@ -21,7 +21,7 @@ export function normalizeSearchQuery(query: string): string {
 }
 
 function isPersistableBook(volume: GoogleBooksVolume, item: BookCatalogItem) {
-  const title = item.title.trim();
+  const title = volume.volumeInfo.title?.trim() ?? "";
   const printType = volume.volumeInfo.printType?.toUpperCase();
 
   return Boolean(

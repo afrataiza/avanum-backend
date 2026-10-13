@@ -31,6 +31,15 @@ export class SupabaseCatalogRepository implements BookCatalogRepository {
     const cachedAt = new Date();
     const expiresAt = new Date(cachedAt.getTime() + ttlSeconds * 1000);
 
+    const { error: cleanupError } = await this.supabase
+      .from("catalog_search_cache")
+      .delete()
+      .lte("expires_at", cachedAt.toISOString());
+
+    if (cleanupError) {
+      throw new Error("Failed to clean expired catalog search cache");
+    }
+
     const { error } = await this.supabase
       .from("catalog_search_cache")
       .upsert({

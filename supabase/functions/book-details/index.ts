@@ -1,6 +1,6 @@
 import { BookCatalogProviderError } from "../_shared/book-catalog/errors.ts";
 import { handleCors, jsonHeaders } from "../_shared/http/cors.ts";
-import { BookCatalogService } from "../_shared/book-catalog/book-catalog-service.ts";
+import { createCatalogService } from "../_shared/book-catalog/create-catalog-service.ts";
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const service = new BookCatalogService();
+    const service = createCatalogService();
     const book = await service.getById(id);
 
     if (!book) {

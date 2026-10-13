@@ -1,4 +1,3 @@
-import { BookCatalogProviderError } from "./errors.ts";
 import { GoogleBooksClient } from "./google-books-client.ts";
 import type { BookCatalogRepository } from "./catalog-repository.ts";
 import { mapGoogleBook } from "./google-books-mapper.ts";
@@ -11,7 +10,6 @@ import type {
 
 const DEFAULT_SEARCH_TTL_SECONDS = 60 * 60;
 const DEFAULT_DETAILS_TTL_SECONDS = 7 * 24 * 60 * 60;
-const MAX_SEARCH_CANDIDATES = 20;
 
 function ttlFromEnv(name: string, fallback: number): number {
   const value = Number(Deno.env.get(name));

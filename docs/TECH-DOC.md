@@ -1,6 +1,6 @@
 # Avanum — Technical Design Document (MVP)
 
-**Versão 1.5 · Estado técnico consolidado após Book Catalog, Reading, XP, Descobertas e integração de eventos/Expedições**
+**Versão 1.6 · Cache e resiliência do Book Catalog**
 
 ## 1. Visão técnica
 
@@ -94,6 +94,20 @@ Open Library foi avaliada durante a descoberta técnica, mas não será utilizad
 | Obter volume | Google Books `GET /books/v1/volumes/{id}` |
 
 A API key do Google Books permanece somente no backend como secret.
+
+### Cache, persistência e resiliência do catálogo
+
+- A busca usa `catalog_search_cache`, com chave normalizada por espaços e caixa, resultados ordenados, total e expiração.
+- O TTL padrão da busca é de 1 hora (`CATALOG_SEARCH_CACHE_TTL_SECONDS=3600`).
+- O frontend mantém cache por sessão de buscas (1 hora) e detalhes (7 dias), encapsulado em `catalogApi`.
+- Os resultados de busca **não são gravados automaticamente** em `books`; o cache da busca pode conter resultados que nunca serão persistidos no catálogo global.
+- Ao abrir detalhes, o backend consulta `books` por `external_id`. Metadados sincronizados dentro do TTL padrão de 7 dias (`CATALOG_DETAILS_CACHE_TTL_SECONDS=604800`) são reutilizados sem chamada externa.
+- Quando os detalhes não existem ou estão desatualizados, o backend consulta Google Books e faz upsert somente se o identificador e o título forem válidos e o tipo não indicar conteúdo que não seja livro. ISBN, autor e capa são opcionais.
+- `books.catalog_synced_at` registra a última sincronização bem-sucedida com o provider; `updated_at` não é usado como substituto.
+- Se o provider falhar, os detalhes persistidos podem ser retornados mesmo expirados. Buscas podem usar o último cache persistido, mesmo expirado, como fallback quando o provider falhar.
+- O limite do cliente Google Books é de 20 resultados por requisição; não há paginação adicional para popular o catálogo.
+- Logs estruturados registram cache hit/miss, sucesso/erro do provider, fallback e duração sem registrar o termo pesquisado.
+
 
 ### Contrato de Book
 

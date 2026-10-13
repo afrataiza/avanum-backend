@@ -18,6 +18,30 @@ export class GoogleBooksClient {
     return apiKey;
   }
 
+  private async throwProviderError(response: Response): Promise<never> {
+    // Preserve the HTTP status and safe provider message for diagnostics, without logging request URLs/API keys.
+    let providerMessage = "Unknown provider error";
+    try {
+      const body = await response.json();
+      providerMessage = typeof body?.error?.message === "string"
+        ? body.error.message
+        : providerMessage;
+    } catch {
+      // Ignore non-JSON error bodies.
+    }
+
+    console.error(JSON.stringify({
+      event: "google_books_http_error",
+      status: response.status,
+      providerMessage,
+    }));
+
+    throw new BookCatalogProviderError(
+      `Google Books API returned ${response.status}`,
+      response.status,
+    );
+  }
+
   async search(query: string): Promise<GoogleBooksSearchResponse> {
     const url = new URL(`${GOOGLE_BOOKS_BASE_URL}/volumes`);
 
@@ -28,10 +52,7 @@ export class GoogleBooksClient {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new BookCatalogProviderError(
-        `Google Books API returned ${response.status}`,
-        response.status,
-      );
+      return await this.throwProviderError(response);
     }
 
     return await response.json();
@@ -51,10 +72,7 @@ export class GoogleBooksClient {
     }
 
     if (!response.ok) {
-      throw new BookCatalogProviderError(
-        `Google Books API returned ${response.status}`,
-        response.status,
-      );
+      return await this.throwProviderError(response);
     }
 
     return await response.json();

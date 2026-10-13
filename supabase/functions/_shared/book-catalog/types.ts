@@ -10,6 +10,7 @@ export interface GoogleBooksVolume {
 
 export interface GoogleBooksVolumeInfo {
   title?: string;
+  printType?: string;
   authors?: string[];
   description?: string;
   publishedDate?: string;

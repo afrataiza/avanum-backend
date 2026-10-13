@@ -4,10 +4,19 @@ import { SupabaseCatalogRepository } from "./supabase-catalog-repository.ts";
 
 export function createCatalogService(): BookCatalogService {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
+  // Prefer the explicit server-only variable; keep SERVICE_ROLE_KEY as a
+  // compatibility fallback for existing local setups.
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+    Deno.env.get("SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Catalog persistence is not configured");
+  }
+
+  if (serviceRoleKey.startsWith("sb_publishable_")) {
+    throw new Error(
+      "Catalog persistence requires a server-side Supabase secret key",
+    );
   }
 
   const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
